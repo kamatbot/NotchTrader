@@ -23,7 +23,7 @@ settings:
     # and the prompt would come back after every `make run`.
     CODE_SIGN_IDENTITY: "Developer ID Application"
     CODE_SIGN_STYLE: Manual
-    DEVELOPMENT_TEAM: 6WFPL8B9FB
+    DEVELOPMENT_TEAM: B4F73U5RGR
     CODE_SIGNING_REQUIRED: "YES"
     CODE_SIGNING_ALLOWED: "YES"
     # Required by notarization. Worth knowing what it does *not* break here:
@@ -68,8 +68,8 @@ targets:
         # notch is ambient, but the *app* still has to be findable: without a
         # Dock tile there is nothing to click to open it, nothing in Cmd-Tab,
         # and no obvious way to reach settings or quit.
-        CFBundleName: Codenotch
-        CFBundleDisplayName: Codenotch
+        CFBundleName: NotchTrader
+        CFBundleDisplayName: NotchTrader
         CFBundleDevelopmentRegion: en
         CFBundleLocalizations:
           - en
