@@ -49,6 +49,7 @@ struct ProviderRing: View {
     /// Where the user asked for it, if at all.
     var weeklyRing: WeeklyRing = .off
     var bandOverride: UsageBand? = nil
+    var tickerText: String? = nil
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.codenotchReduceTransparency) private var reduceTransparency
@@ -240,11 +241,19 @@ struct ProviderRing: View {
                         .animation(NotchMotion.reading, value: weeklyBand)
                 }
 
-                ProviderGlyphView(glyph: glyph, customIconFilename: customIconFilename)
-                    .foregroundStyle(Palette.textPrimary)
-                    // A spent limit dims its glyph so the ring reads as "waiting".
-                    // Under reduce-transparency, boost opacity so it stays legible without low alpha.
-                    .opacity(band == .exhausted ? (reduceTransparency ? 0.7 : 0.35) : 1)
+                if let tickerText, !tickerText.isEmpty {
+                    Text(tickerText)
+                        .font(.system(size: tickerText.count > 3 ? 7.5 : 8.5, weight: .black, design: .rounded))
+                        .foregroundStyle(Palette.textPrimary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
+                } else {
+                    ProviderGlyphView(glyph: glyph, customIconFilename: customIconFilename)
+                        .foregroundStyle(Palette.textPrimary)
+                        // A spent limit dims its glyph so the ring reads as "waiting".
+                        // Under reduce-transparency, boost opacity so it stays legible without low alpha.
+                        .opacity(band == .exhausted ? (reduceTransparency ? 0.7 : 0.35) : 1)
+                }
             }
             .opacity(isStale ? (reduceTransparency ? 0.75 : 0.45) : 1)
 
@@ -402,7 +411,8 @@ struct ProviderCell: View {
                 localContextFraction: snapshot.localContextFraction,
                 weeklyFraction: snapshot.hasReading ? snapshot.weeklyFraction : nil,
                 weeklyRing: weeklyRing,
-                bandOverride: snapshot.bandOverride
+                bandOverride: snapshot.bandOverride,
+                tickerText: snapshot.kind == .stockTicker ? snapshot.displayName : nil
             )
             if showsReading { reading }
         }

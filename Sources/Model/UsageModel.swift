@@ -395,6 +395,9 @@ struct ProviderSnapshot: Identifiable, Equatable {
     /// Locally sampled cumulative token usage for a custom endpoint.
     var customUsageHistory: [CustomEndpointUsageDay]? = nil
 
+    /// Live OpsOdds score, market quote, and actionable trade levels.
+    var opsOddsScore: OpsOddsScore? = nil
+
     /// The number on the cell: the provider's declared primary window — for
     /// Claude, the current session.
     ///
@@ -510,6 +513,9 @@ struct ProviderSnapshot: Identifiable, Equatable {
             return showsLocalPerformance ? (localPerformance?.headlineText ?? "— tok/s")
                 : (localModel?.memoryText ?? "—")
         }
+        if kind == .stockTicker {
+            return opsOddsScore?.formattedPrice ?? headline?.usedText ?? "—"
+        }
         if headline?.prefersUsedText == true, let usedText = headline?.usedText { return usedText }
         if let usedFraction {
             // The tooltip's own left half, not one minus the fraction: it
@@ -526,7 +532,7 @@ struct ProviderSnapshot: Identifiable, Equatable {
 
     /// An empty local inventory still confirms server connectivity; an absent
     /// reading must not be shown as measured zero usage.
-    var hasReading: Bool { localRuntime != nil || localModel != nil || !windows.isEmpty }
+    var hasReading: Bool { localRuntime != nil || localModel != nil || opsOddsScore != nil || !windows.isEmpty }
 
     /// Group headings occupy space in both the card and its hover region.
     var windowGroupCount: Int { Set(windows.compactMap(\.group)).count }

@@ -26,7 +26,7 @@ extension View {
 /// crossing-and-notification machinery it switches is Notifications' to
 /// explain.
 private enum SettingsSection: String, CaseIterable, Identifiable, Hashable {
-    case accounts, phone, deepseek, ollama, lmstudio, omlx, customEndpoints, remoteHosts, appearance, notifications, costs, general
+    case tickers, accounts, phone, deepseek, ollama, lmstudio, omlx, customEndpoints, remoteHosts, appearance, notifications, costs, general
 
     /// The sections the sidebar lists; Phone only once pairing is offered.
     static var visible: [SettingsSection] {
@@ -47,6 +47,7 @@ private enum SettingsSection: String, CaseIterable, Identifiable, Hashable {
 
     var title: String {
         switch self {
+        case .tickers:       return "Tickers & OpsOdds"
         case .accounts:      return L10n.t("Accounts")
         case .phone:         return L10n.t("Phone")
         case .deepseek:      return "DeepSeek"
@@ -77,6 +78,7 @@ private enum SettingsSection: String, CaseIterable, Identifiable, Hashable {
     /// The line under the pane's title.
     var subtitle: String {
         switch self {
+        case .tickers:       return "Stock tickers, Schwab real-time quotes, and OpsOdds scores."
         case .accounts:      return L10n.t("Choose which providers the notch reads.")
         case .phone:         return L10n.t("See your usage on your phone.")
         case .deepseek:      return L10n.t("Peak and off-peak pricing for your DeepSeek spend.")
@@ -94,6 +96,7 @@ private enum SettingsSection: String, CaseIterable, Identifiable, Hashable {
 
     var icon: String {
         switch self {
+        case .tickers:       return "chart.xyaxis.line"
         case .accounts:      return "person.crop.circle.fill"
         case .phone:         return "iphone"
         case .deepseek:      return "chart.line.uptrend.xyaxis"
@@ -114,6 +117,7 @@ private enum SettingsSection: String, CaseIterable, Identifiable, Hashable {
     /// icons are not.
     var tint: Color {
         switch self {
+        case .tickers:       return .green
         case .accounts:      return .blue
         case .phone:         return .green
         case .deepseek:      return .orange
@@ -718,6 +722,7 @@ struct SettingsView: View {
     @ViewBuilder
     private func paneContent(for section: SettingsSection) -> some View {
         switch section {
+        case .tickers:       TickersSettingsView(preferences: preferences)
         case .accounts:      accountsPane
         case .phone:         phonePane
         case .costs:         CostSettingsPane()

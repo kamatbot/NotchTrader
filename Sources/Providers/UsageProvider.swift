@@ -3,6 +3,7 @@ import Foundation
 enum ProviderKind: Equatable {
     case usage
     case localRuntime
+    case stockTicker
 }
 
 /// How recent a reading has to be to answer a fetch.

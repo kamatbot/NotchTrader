@@ -390,6 +390,8 @@ enum NotchLayout {
             + blockSpacing + 2 * chart + usageDetailChartGap
     }
 
+    static let opsOddsCardHeight: CGFloat = Design.px(240)
+
     static func cardHeight(windowCount: Int, groupCount: Int = 0,
                            moneyWindowCount: Int = 0, moneyResetCount: Int = 0,
                            moneyProjectionCount: Int = 0,
@@ -405,7 +407,9 @@ enum NotchLayout {
                            localLedgerRows: Int = 0,
                            compactRowCount: Int = 0,
                            showsDeepSeekPricing: Bool = true,
-                           costRows: Int = 0) -> CGFloat {
+                           costRows: Int = 0,
+                           isStockTicker: Bool = false) -> CGFloat {
+        if isStockTicker { return opsOddsCardHeight }
         let header = max(glyphSize, cardTitleLineHeight)
             + (hasPlan ? cardBodyLineHeight : 0)
         var height = 2 * cardPadding + header

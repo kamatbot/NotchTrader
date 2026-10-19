@@ -63,6 +63,26 @@ final class Preferences: ObservableObject {
         didSet { defaults.set(omlxEndpoint, forKey: Keys.omlxEndpoint) }
     }
 
+    /// User-configured stock tickers displayed on NotchTrader.
+    @Published var configuredTickers: [String] {
+        didSet { defaults.set(configuredTickers, forKey: Keys.configuredTickers) }
+    }
+
+    /// Base URL for the OpsOdds backend.
+    @Published var opsOddsBaseURL: String {
+        didSet { defaults.set(opsOddsBaseURL, forKey: Keys.opsOddsBaseURL) }
+    }
+
+    /// Paired device ID from OpsOdds extension pairing.
+    @Published var opsOddsDeviceId: String {
+        didSet { defaults.set(opsOddsDeviceId, forKey: Keys.opsOddsDeviceId) }
+    }
+
+    /// Refresh interval for live quotes and OpsOdds scores.
+    @Published var opsOddsRefreshInterval: Double {
+        didSet { defaults.set(opsOddsRefreshInterval, forKey: Keys.opsOddsRefreshInterval) }
+    }
+
     /// User-configured custom OpenAI-compatible endpoints.
     @Published var customEndpoints: [CustomEndpoint] {
         didSet {
@@ -587,6 +607,10 @@ final class Preferences: ObservableObject {
 
         static let lmstudioEndpoint = "lmstudioEndpoint"
         static let omlxEndpoint = "omlxEndpoint"
+        static let configuredTickers = "configuredTickers"
+        static let opsOddsBaseURL = "opsOddsBaseURL"
+        static let opsOddsDeviceId = "opsOddsDeviceId"
+        static let opsOddsRefreshInterval = "opsOddsRefreshInterval"
         static let introducedOllama = "introducedOllama"
         static let migratedOllamaID = "migratedOllamaLocalID"
         static let ollamaMetricsEnabled = "ollamaMetricsEnabled"
@@ -732,6 +756,35 @@ final class Preferences: ObservableObject {
             defaults.set(data, forKey: Keys.customEndpoints)
         }
         return migrated
+    }
+
+    nonisolated static func storedConfiguredTickers(
+        defaults: UserDefaults = .standard
+    ) -> [String] {
+        if let list = defaults.stringArray(forKey: Keys.configuredTickers), !list.isEmpty {
+            return list
+        }
+        return ["SPY", "QQQ", "AAPL"]
+    }
+
+    nonisolated static func storedOpsOddsBaseURL(
+        defaults: UserDefaults = .standard
+    ) -> String {
+        defaults.string(forKey: Keys.opsOddsBaseURL) ?? "https://www.opsodds.com"
+    }
+
+    nonisolated static func storedOpsOddsDeviceId(
+        defaults: UserDefaults = .standard
+    ) -> String? {
+        let val = defaults.string(forKey: Keys.opsOddsDeviceId)
+        return (val?.isEmpty ?? true) ? nil : val
+    }
+
+    nonisolated static func storedOpsOddsRefreshInterval(
+        defaults: UserDefaults = .standard
+    ) -> Double {
+        let val = defaults.double(forKey: Keys.opsOddsRefreshInterval)
+        return val > 0 ? val : 15.0
     }
 
     /// Custom endpoint providers are actors and ask for this on every fetch, and
@@ -1050,6 +1103,10 @@ final class Preferences: ObservableObject {
             self.customEndpoints = []
         }
         self.remoteHosts = Self.storedRemoteHosts(defaults: defaults)
+        self.configuredTickers = Self.storedConfiguredTickers(defaults: defaults)
+        self.opsOddsBaseURL = Self.storedOpsOddsBaseURL(defaults: defaults)
+        self.opsOddsDeviceId = defaults.string(forKey: Keys.opsOddsDeviceId) ?? ""
+        self.opsOddsRefreshInterval = Self.storedOpsOddsRefreshInterval(defaults: defaults)
         // Read from the system rather than from our own store: the user can turn
         // this off in System Settings, and a remembered `true` would then be a lie.
         self.launchAtLogin = Self.isRegisteredForLogin

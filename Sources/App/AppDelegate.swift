@@ -183,7 +183,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             let remoteProviders: [UsageProvider] = preferences.remoteHosts
                 .filter { $0.isEnabled && $0.isConfigured }
                 .map { $0.makeProvider() }
-            let allProviders: [UsageProvider] = claudeProviders
+            let tickerProviders: [UsageProvider] = preferences.configuredTickers.map { ticker in
+                StockTickerProvider(
+                    ticker: ticker,
+                    getDeviceId: { [weak preferences] in preferences?.opsOddsDeviceId },
+                    getBaseURL: { [weak preferences] in preferences?.opsOddsBaseURL ?? "https://www.opsodds.com" }
+                )
+            }
+            let allProviders: [UsageProvider] = tickerProviders
+                + claudeProviders
                 + [CursorLocalProvider()]
                 + codexProfiles.map { CodexLocalProvider(profile: $0) }
                 + antigravityProfiles.map { AntigravityProvider(profile: $0) }
@@ -243,6 +251,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     let active = stored.filter { $0.isEnabled && $0.isConfigured }
                     let providers: [UsageProvider] = active.map { $0.makeProvider() }
                     store?.registerRemoteProviders(providers)
+                }
+                .store(in: &cancellables)
+            preferences.$configuredTickers
+                .removeDuplicates()
+                .receive(on: RunLoop.main)
+                .sink { [weak store, weak preferences] tickers in
+                    guard let preferences else { return }
+                    let providers: [UsageProvider] = tickers.map { ticker in
+                        StockTickerProvider(
+                            ticker: ticker,
+                            getDeviceId: { [weak preferences] in preferences?.opsOddsDeviceId },
+                            getBaseURL: { [weak preferences] in preferences?.opsOddsBaseURL ?? "https://www.opsodds.com" }
+                        )
+                    }
+                    store?.registerTickerProviders(providers)
                 }
                 .store(in: &cancellables)
             Costs.attach(to: store)

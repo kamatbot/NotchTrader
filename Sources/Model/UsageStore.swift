@@ -72,6 +72,15 @@ final class UsageStore: ObservableObject {
         refreshNow()
     }
 
+    func registerTickerProviders(_ tickerProviders: [UsageProvider]) {
+        providers.removeAll { $0.id.hasPrefix("ticker:") }
+        providers.append(contentsOf: tickerProviders)
+        for provider in tickerProviders {
+            publish(Self.placeholder(provider))
+        }
+        refreshNow()
+    }
+
     /// Provider ids plus any model cells currently on screen.
     var knownIDs: [String] {
         Array(Set(providers.map(\.id) + snapshots.map(\.id) + localModelSummaries.map(\.id)))
