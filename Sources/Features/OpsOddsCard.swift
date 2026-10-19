@@ -3,7 +3,7 @@ import AppKit
 
 /// Rich tooltip card displayed when hovering over a stock ticker on the notch.
 /// Renders live Schwab real-time quotes, OpsOdds scores (1-10), trade decision,
-/// entry/invalidation/target levels, and instructions in a spacious, highly legible window.
+/// entry/invalidation/target levels, and direct buy/sell links to Fidelity.com.
 struct OpsOddsCard: View {
     let snapshot: ProviderSnapshot
     let now: Date
@@ -42,26 +42,46 @@ struct OpsOddsCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            // Header: Ticker, Source Badge, Company Name, Price, Change
+            // Header: Ticker, Badges, Direct Fidelity link, Price, Change
             HStack(alignment: .top) {
-                VStack(alignment: .leading, spacing: 3) {
-                    HStack(alignment: .center, spacing: 7) {
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(alignment: .center, spacing: 6) {
                         Text(ticker)
-                            .font(.system(size: 22, weight: .bold, design: .rounded))
+                            .font(.system(size: 24, weight: .bold, design: .rounded))
                             .foregroundStyle(Palette.textPrimary)
 
                         Text(score?.quoteSource ?? "Schwab Real-Time")
-                            .font(.system(size: 10.5, weight: .bold))
-                            .padding(.horizontal, 7)
-                            .padding(.vertical, 3)
+                            .font(.system(size: 10, weight: .bold))
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2.5)
                             .background(Color.white.opacity(0.12))
                             .clipShape(Capsule())
                             .foregroundStyle(Palette.textSecondary)
+
+                        Button {
+                            openFidelity()
+                        } label: {
+                            HStack(spacing: 3) {
+                                Image(systemName: "dollarsign.circle.fill")
+                                    .font(.system(size: 9.5, weight: .bold))
+                                Text("Fidelity")
+                                    .font(.system(size: 10, weight: .bold))
+                                Image(systemName: "arrow.up.right")
+                                    .font(.system(size: 8, weight: .bold))
+                            }
+                            .padding(.horizontal, 6.5)
+                            .padding(.vertical, 2.5)
+                            .background(Color(hex: 0x10B981).opacity(0.2))
+                            .foregroundStyle(Color(hex: 0x10B981))
+                            .clipShape(Capsule())
+                        }
+                        .buttonStyle(.plain)
+                        .help("Trade \(ticker) on Fidelity")
                     }
 
                     if let company = score?.companyName {
                         Text(company)
-                            .font(.system(size: 13, weight: .medium))
+                            .font(.system(size: 12.5, weight: .medium))
                             .foregroundStyle(Palette.textSecondary)
                             .lineLimit(1)
                     }
@@ -126,6 +146,34 @@ struct OpsOddsCard: View {
 
                 Spacer()
             }
+
+            // PROMINENT FIDELITY ACTION BAR
+            Button {
+                openFidelity()
+            } label: {
+                HStack(spacing: 7) {
+                    Image(systemName: "dollarsign.circle.fill")
+                        .font(.system(size: 14, weight: .bold))
+                    Text("Trade \(ticker) on Fidelity")
+                        .font(.system(size: 13, weight: .bold))
+                    Spacer()
+                    Text("Buy / Sell")
+                        .font(.system(size: 11.5, weight: .bold))
+                        .opacity(0.9)
+                    Image(systemName: "arrow.up.right")
+                        .font(.system(size: 11, weight: .bold))
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+                .background(Color(hex: 0x10B981).opacity(0.22))
+                .foregroundStyle(Color(hex: 0x10B981))
+                .clipShape(RoundedRectangle(cornerRadius: 8))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 8)
+                        .stroke(Color(hex: 0x10B981).opacity(0.45), lineWidth: 1)
+                )
+            }
+            .buttonStyle(.plain)
 
             // Actionable Trade Levels in a 2x2 Grid
             if let levels = score?.levels {
@@ -201,16 +249,12 @@ struct OpsOddsCard: View {
                 }
             }
 
-            Spacer(minLength: 0)
+            Spacer(minLength: 4)
 
-            // Footer: Direct Fidelity Buy/Sell and OpsOdds Chart
+            // Footer: Fidelity Trade Link and OpsOdds Chart
             HStack(alignment: .center, spacing: 8) {
-                // Fidelity Trade Button (Direct link to buy / sell ticker)
                 Button {
-                    let fidelityURL = "https://digital.fidelity.com/prgw/digital/research/quote/dashboard/summary?symbol=\(ticker)"
-                    if let url = URL(string: fidelityURL) {
-                        NSWorkspace.shared.open(url)
-                    }
+                    openFidelity()
                 } label: {
                     HStack(spacing: 5) {
                         Image(systemName: "dollarsign.circle.fill")
@@ -249,6 +293,15 @@ struct OpsOddsCard: View {
                 }
                 .buttonStyle(.plain)
             }
+        }
+    }
+
+    private func openFidelity() {
+        let sym = ticker.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+        guard !sym.isEmpty else { return }
+        let fidelityURL = "https://digital.fidelity.com/prgw/digital/research/quote/dashboard/summary?symbol=\(sym)"
+        if let url = URL(string: fidelityURL) {
+            NSWorkspace.shared.open(url)
         }
     }
 }

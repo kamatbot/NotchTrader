@@ -192,7 +192,7 @@ enum NotchLayout {
     /// The update card's, wider for its three buttons — see `UpdateCard`.
     static let updateCardWidth = Design.px(820)
     /// OpsOdds stock card width: wider for quote, score, decision & trade levels.
-    static let opsOddsCardWidth = Design.px(800)
+    static let opsOddsCardWidth = Design.px(920)
     static let cardCorner    = Design.px(49.5)
     static let cardPadding   = Design.px(32)
     static let tailLength    = Design.px(75)
@@ -392,7 +392,7 @@ enum NotchLayout {
             + blockSpacing + 2 * chart + usageDetailChartGap
     }
 
-    static let opsOddsCardHeight: CGFloat = Design.px(1080)
+    static let opsOddsCardHeight: CGFloat = Design.px(1350)
 
     static func cardHeight(windowCount: Int, groupCount: Int = 0,
                            moneyWindowCount: Int = 0, moneyResetCount: Int = 0,
