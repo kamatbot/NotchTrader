@@ -3,7 +3,7 @@ import AppKit
 
 /// Rich tooltip card displayed when hovering over a stock ticker on the notch.
 /// Renders live Schwab real-time quotes, OpsOdds scores (1-10), trade decision,
-/// entry/invalidation/target levels, and instructions.
+/// entry/invalidation/target levels, and instructions in a spacious, highly legible window.
 struct OpsOddsCard: View {
     let snapshot: ProviderSnapshot
     let now: Date
@@ -35,28 +35,33 @@ struct OpsOddsCard: View {
         return change >= 0 ? Color(hex: 0x10B981) : Color(hex: 0xEF4444)
     }
 
+    private let gridColumns = [
+        GridItem(.flexible(), spacing: 8),
+        GridItem(.flexible(), spacing: 8)
+    ]
+
     var body: some View {
-        VStack(alignment: .leading, spacing: Design.px(10)) {
-            // Header: Ticker, Name, Price, Change
+        VStack(alignment: .leading, spacing: 12) {
+            // Header: Ticker, Source Badge, Company Name, Price, Change
             HStack(alignment: .top) {
-                VStack(alignment: .leading, spacing: Design.px(2)) {
-                    HStack(alignment: .center, spacing: Design.px(6)) {
+                VStack(alignment: .leading, spacing: 3) {
+                    HStack(alignment: .center, spacing: 7) {
                         Text(ticker)
-                            .font(.system(size: Design.px(17), weight: .bold, design: .rounded))
+                            .font(.system(size: 22, weight: .bold, design: .rounded))
                             .foregroundStyle(Palette.textPrimary)
 
                         Text(score?.quoteSource ?? "Schwab Real-Time")
-                            .font(.system(size: Design.px(9), weight: .bold))
-                            .padding(.horizontal, Design.px(5))
-                            .padding(.vertical, Design.px(2))
-                            .background(Color.white.opacity(0.1))
+                            .font(.system(size: 10.5, weight: .bold))
+                            .padding(.horizontal, 7)
+                            .padding(.vertical, 3)
+                            .background(Color.white.opacity(0.12))
                             .clipShape(Capsule())
                             .foregroundStyle(Palette.textSecondary)
                     }
 
                     if let company = score?.companyName {
                         Text(company)
-                            .font(.system(size: Design.px(11), weight: .regular))
+                            .font(.system(size: 13, weight: .medium))
                             .foregroundStyle(Palette.textSecondary)
                             .lineLimit(1)
                     }
@@ -65,69 +70,71 @@ struct OpsOddsCard: View {
                 Spacer()
 
                 // Price and Change
-                VStack(alignment: .trailing, spacing: Design.px(2)) {
+                VStack(alignment: .trailing, spacing: 3) {
                     Text(score?.formattedPrice ?? snapshot.headlineText)
-                        .font(.system(size: Design.px(18), weight: .bold, design: .monospaced))
+                        .font(.system(size: 23, weight: .bold, design: .monospaced))
                         .foregroundStyle(Palette.textPrimary)
 
                     if let changeText = score?.formattedChange, !changeText.isEmpty {
                         Text(changeText)
-                            .font(.system(size: Design.px(11), weight: .semibold, design: .monospaced))
+                            .font(.system(size: 13, weight: .semibold, design: .monospaced))
                             .foregroundStyle(priceChangeColor)
                     }
                 }
             }
 
-            Divider()
-                .overlay(Color.white.opacity(0.12))
+            Rectangle()
+                .fill(Palette.ringTrack)
+                .frame(height: NotchLayout.hairline)
 
             // OpsOdds Score & Trade Decision Banner
-            HStack(spacing: Design.px(12)) {
-                // Circular / Pill Score Meter
-                HStack(alignment: .firstTextBaseline, spacing: Design.px(2)) {
+            HStack(alignment: .center, spacing: 12) {
+                // Large Score Badge
+                HStack(alignment: .firstTextBaseline, spacing: 2) {
                     Text("\(scoreVal)")
-                        .font(.system(size: Design.px(26), weight: .black, design: .rounded))
+                        .font(.system(size: 32, weight: .black, design: .rounded))
                         .foregroundStyle(scoreColor)
                     Text("/ 10")
-                        .font(.system(size: Design.px(12), weight: .bold, design: .rounded))
+                        .font(.system(size: 13, weight: .bold, design: .rounded))
                         .foregroundStyle(Palette.textSecondary)
                 }
-                .padding(.horizontal, Design.px(10))
-                .padding(.vertical, Design.px(4))
-                .background(scoreColor.opacity(0.15))
-                .clipShape(RoundedRectangle(cornerRadius: Design.px(8)))
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
+                .background(scoreColor.opacity(0.16))
+                .clipShape(RoundedRectangle(cornerRadius: 10))
 
-                VStack(alignment: .leading, spacing: Design.px(2)) {
-                    HStack(spacing: Design.px(6)) {
+                VStack(alignment: .leading, spacing: 3) {
+                    HStack(spacing: 6) {
                         Text(score?.bandBadge ?? "SCORE")
-                            .font(.system(size: Design.px(10), weight: .heavy))
+                            .font(.system(size: 11, weight: .heavy))
                             .foregroundStyle(scoreColor)
 
                         Circle()
                             .fill(scoreColor)
-                            .frame(width: Design.px(4), height: Design.px(4))
+                            .frame(width: 5, height: 5)
 
                         Text(score?.isFresh == true ? "Live Signals" : "Cached Analysis")
-                            .font(.system(size: Design.px(10), weight: .medium))
+                            .font(.system(size: 11, weight: .medium))
                             .foregroundStyle(Palette.textSecondary)
                     }
 
                     Text(score?.decision ?? "Analyzing setup...")
-                        .font(.system(size: Design.px(14), weight: .semibold))
+                        .font(.system(size: 14, weight: .semibold))
                         .foregroundStyle(Palette.textPrimary)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
 
                 Spacer()
             }
 
-            // Actionable Trade Levels
+            // Actionable Trade Levels in a 2x2 Grid
             if let levels = score?.levels {
-                VStack(alignment: .leading, spacing: Design.px(5)) {
+                VStack(alignment: .leading, spacing: 6) {
                     Text("TRADE LEVELS")
-                        .font(.system(size: Design.px(9), weight: .bold))
+                        .font(.system(size: 10.5, weight: .heavy))
                         .foregroundStyle(Palette.textSecondary)
 
-                    HStack(spacing: Design.px(6)) {
+                    LazyVGrid(columns: gridColumns, spacing: 7) {
                         if let entry = levels.entryZoneText {
                             LevelPill(title: "Entry Zone", value: entry, color: Color(hex: 0x3B82F6))
                         }
@@ -146,39 +153,47 @@ struct OpsOddsCard: View {
 
             // Instruction Banner
             if let instruction = score?.instruction, !instruction.isEmpty {
-                HStack(alignment: .top, spacing: Design.px(8)) {
+                HStack(alignment: .top, spacing: 9) {
                     Image(systemName: "info.circle.fill")
-                        .font(.system(size: Design.px(12)))
+                        .font(.system(size: 14))
                         .foregroundStyle(scoreColor)
-                        .padding(.top, Design.px(1))
+                        .padding(.top, 1)
 
                     Text(instruction)
-                        .font(.system(size: Design.px(11), weight: .medium))
+                        .font(.system(size: 12.5, weight: .medium))
                         .foregroundStyle(Palette.textPrimary)
-                        .lineLimit(2)
+                        .lineLimit(3)
                         .fixedSize(horizontal: false, vertical: true)
                 }
-                .padding(Design.px(8))
+                .padding(9)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .background(Color.white.opacity(0.06))
-                .clipShape(RoundedRectangle(cornerRadius: Design.px(6)))
+                .background(Color.white.opacity(0.07))
+                .clipShape(RoundedRectangle(cornerRadius: 8))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 8)
+                        .stroke(Color.white.opacity(0.1), lineWidth: 1)
+                )
             }
 
             // Technical / Market Signals
             if let signals = score?.signals, !signals.isEmpty {
-                VStack(alignment: .leading, spacing: Design.px(4)) {
+                VStack(alignment: .leading, spacing: 5) {
+                    Text("TECHNICAL SIGNALS")
+                        .font(.system(size: 10.5, weight: .heavy))
+                        .foregroundStyle(Palette.textSecondary)
+
                     ForEach(signals.prefix(2)) { sig in
-                        HStack(spacing: Design.px(6)) {
+                        HStack(spacing: 7) {
                             Image(systemName: sig.isSupportive ? "arrow.up.right" : "arrow.down.right")
-                                .font(.system(size: Design.px(9), weight: .bold))
+                                .font(.system(size: 11, weight: .bold))
                                 .foregroundStyle(sig.isSupportive ? Color(hex: 0x10B981) : Color(hex: 0xF59E0B))
 
                             Text("\(sig.label):")
-                                .font(.system(size: Design.px(10), weight: .bold))
+                                .font(.system(size: 12, weight: .bold))
                                 .foregroundStyle(Palette.textSecondary)
 
                             Text(sig.text)
-                                .font(.system(size: Design.px(10), weight: .regular))
+                                .font(.system(size: 12, weight: .medium))
                                 .foregroundStyle(Palette.textPrimary)
                                 .lineLimit(1)
                         }
@@ -186,11 +201,13 @@ struct OpsOddsCard: View {
                 }
             }
 
+            Spacer(minLength: 0)
+
             // Footer: Timestamp and Open in OpsOdds
-            HStack {
-                Text("Schwab Real-Time API · OpsOdds Intelligence")
-                    .font(.system(size: Design.px(9), weight: .regular))
-                    .foregroundStyle(Palette.textSecondary.opacity(0.7))
+            HStack(alignment: .center) {
+                Text("Schwab Real-Time · OpsOdds Intelligence")
+                    .font(.system(size: 10.5, weight: .medium))
+                    .foregroundStyle(Palette.textSecondary.opacity(0.8))
 
                 Spacer()
 
@@ -199,19 +216,17 @@ struct OpsOddsCard: View {
                         NSWorkspace.shared.open(url)
                     }
                 } label: {
-                    HStack(spacing: Design.px(3)) {
-                        Text("OpsOdds")
-                            .font(.system(size: Design.px(10), weight: .medium))
+                    HStack(spacing: 4) {
+                        Text("Open in OpsOdds")
+                            .font(.system(size: 11.5, weight: .bold))
                         Image(systemName: "arrow.up.right")
-                            .font(.system(size: Design.px(8)))
+                            .font(.system(size: 9.5, weight: .bold))
                     }
                     .foregroundStyle(Color(hex: 0x3B82F6))
                 }
                 .buttonStyle(.plain)
             }
-            .padding(.top, Design.px(2))
         }
-        .padding(Design.px(14))
     }
 }
 
@@ -221,25 +236,25 @@ private struct LevelPill: View {
     let color: Color
 
     var body: some View {
-        VStack(alignment: .leading, spacing: Design.px(1)) {
+        VStack(alignment: .leading, spacing: 2) {
             Text(title.uppercased())
-                .font(.system(size: Design.px(8), weight: .bold))
+                .font(.system(size: 9.5, weight: .heavy))
                 .foregroundStyle(color)
 
             Text(value)
-                .font(.system(size: Design.px(10), weight: .semibold, design: .monospaced))
+                .font(.system(size: 12.5, weight: .bold, design: .monospaced))
                 .foregroundStyle(Palette.textPrimary)
                 .lineLimit(1)
                 .minimumScaleFactor(0.8)
         }
-        .padding(.horizontal, Design.px(7))
-        .padding(.vertical, Design.px(4))
+        .padding(.horizontal, 9)
+        .padding(.vertical, 6)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(color.opacity(0.1))
-        .clipShape(RoundedRectangle(cornerRadius: Design.px(6)))
+        .background(color.opacity(0.12))
+        .clipShape(RoundedRectangle(cornerRadius: 8))
         .overlay(
-            RoundedRectangle(cornerRadius: Design.px(6))
-                .stroke(color.opacity(0.25), lineWidth: 1)
+            RoundedRectangle(cornerRadius: 8)
+                .stroke(color.opacity(0.3), lineWidth: 1)
         )
     }
 }

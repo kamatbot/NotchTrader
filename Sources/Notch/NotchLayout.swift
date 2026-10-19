@@ -191,6 +191,8 @@ enum NotchLayout {
     static let cardWidth     = Design.px(600)
     /// The update card's, wider for its three buttons — see `UpdateCard`.
     static let updateCardWidth = Design.px(820)
+    /// OpsOdds stock card width: wider for quote, score, decision & trade levels.
+    static let opsOddsCardWidth = Design.px(800)
     static let cardCorner    = Design.px(49.5)
     static let cardPadding   = Design.px(32)
     static let tailLength    = Design.px(75)
@@ -390,7 +392,7 @@ enum NotchLayout {
             + blockSpacing + 2 * chart + usageDetailChartGap
     }
 
-    static let opsOddsCardHeight: CGFloat = Design.px(240)
+    static let opsOddsCardHeight: CGFloat = Design.px(1080)
 
     static func cardHeight(windowCount: Int, groupCount: Int = 0,
                            moneyWindowCount: Int = 0, moneyResetCount: Int = 0,
@@ -529,8 +531,8 @@ enum NotchLayout {
                       maxCardHeight: CGFloat = defaultMaxCardHeight,
                       notchScale: CGFloat = 1) -> CGFloat {
         edge.isVertical
-            ? max(endSlack * notchScale, maxCardHeight / 2 + cardCorner)
-            : max(endSlack * notchScale, cardWidth / 2 + cardCorner)
+            ? max(endSlack * notchScale, max(maxCardHeight, opsOddsCardHeight) / 2 + cardCorner)
+            : max(endSlack * notchScale, max(cardWidth, opsOddsCardWidth) / 2 + cardCorner)
     }
 
     private static let endSlack = Design.px(190)
@@ -607,9 +609,7 @@ enum NotchLayout {
     /// below or above it on a horizontal one.
     static func tooltipDepth(for edge: NotchEdge,
                              maxCardHeight: CGFloat = defaultMaxCardHeight) -> CGFloat {
-        // Beside a side edge's notch the update card has to fit too, and it is
-        // wider than a tooltip: held to the tooltip's width, the window cut
-        // its far side off.
-        (edge.isVertical ? max(cardWidth, updateCardWidth) : maxCardHeight) + tailLength + tailGap
+        // Beside a side edge's notch the update and stock cards have to fit too.
+        (edge.isVertical ? max(cardWidth, updateCardWidth, opsOddsCardWidth) : max(maxCardHeight, opsOddsCardHeight)) + tailLength + tailGap
     }
 }

@@ -123,30 +123,37 @@ final class CursorGeometry {
         if let cached = tooltipRects[index] { return cached }
         guard model.snapshots.indices.contains(index) else { return nil }
         let snapshot = model.snapshots[index]
-        let cardHeight = NotchLayout.cardHeight(
-            windowCount: snapshot.windows.count,
-            groupCount: snapshot.windowGroupCount,
-            moneyWindowCount: snapshot.windows.filter { $0.money != nil }.count,
-            moneyResetCount: snapshot.windows.filter { $0.money != nil && $0.resetsAt != nil }.count,
-            moneyProjectionCount: snapshot.windows.filter { $0.money != nil && $0.usageProjection(now: model.now) != nil }.count,
-            usageDetailGroupCount: snapshot.usageDetail?.visibleGroups.count ?? 0,
-            sessionCount: snapshot.localModel == nil ? (model.activity(for: snapshot.id)?.sessions.count ?? 0) : 0,
-            sessionCap: sessionCap,
-            statusMessage: snapshot.statusMessage,
-            blockMessage: snapshot.block?.summary(now: model.now),
-            hasTokenUsage: snapshot.tokenUsage != nil,
-            hasPlan: snapshot.plan != nil,
-            hasResetCredits: snapshot.hasAvailableResetCredits,
-            localModelName: snapshot.localModel?.name,
-            showsLocalPerformance: snapshot.showsLocalPerformance,
-            localLedgerRows: snapshot.localLedgerRowCount,
-            compactRowCount: snapshot.compactRowCount,
-            showsDeepSeekPricing: model.deepSeekPricingEnabled
-        )
+        let cardHeight: CGFloat
+        if snapshot.kind == .stockTicker {
+            cardHeight = NotchLayout.opsOddsCardHeight
+        } else {
+            cardHeight = NotchLayout.cardHeight(
+                windowCount: snapshot.windows.count,
+                groupCount: snapshot.windowGroupCount,
+                moneyWindowCount: snapshot.windows.filter { $0.money != nil }.count,
+                moneyResetCount: snapshot.windows.filter { $0.money != nil && $0.resetsAt != nil }.count,
+                moneyProjectionCount: snapshot.windows.filter { $0.money != nil && $0.usageProjection(now: model.now) != nil }.count,
+                usageDetailGroupCount: snapshot.usageDetail?.visibleGroups.count ?? 0,
+                sessionCount: snapshot.localModel == nil ? (model.activity(for: snapshot.id)?.sessions.count ?? 0) : 0,
+                sessionCap: sessionCap,
+                statusMessage: snapshot.statusMessage,
+                blockMessage: snapshot.block?.summary(now: model.now),
+                hasTokenUsage: snapshot.tokenUsage != nil,
+                hasPlan: snapshot.plan != nil,
+                hasResetCredits: snapshot.hasAvailableResetCredits,
+                localModelName: snapshot.localModel?.name,
+                showsLocalPerformance: snapshot.showsLocalPerformance,
+                localLedgerRows: snapshot.localLedgerRowCount,
+                compactRowCount: snapshot.compactRowCount,
+                showsDeepSeekPricing: model.deepSeekPricingEnabled,
+                isStockTicker: snapshot.kind == .stockTicker
+            )
+        }
+        let width = snapshot.kind == .stockTicker ? NotchLayout.opsOddsCardWidth : NotchLayout.cardWidth
         // Across the stack the region is the card, its tail, and the gap the
         // pointer has to cross. Along it, the card's own extent.
-        let cardAcross = model.edge.isVertical ? NotchLayout.cardWidth : cardHeight
-        let cardAlong = model.edge.isVertical ? cardHeight : NotchLayout.cardWidth
+        let cardAcross = model.edge.isVertical ? width : cardHeight
+        let cardAlong = model.edge.isVertical ? cardHeight : width
         let centre = model.cardAlong(centredOn: ringAlong(index: index), length: cardAlong)
         let rect = placement.rect(
             along: centre - cardAlong / 2,
