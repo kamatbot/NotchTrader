@@ -257,7 +257,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 .removeDuplicates()
                 .receive(on: RunLoop.main)
                 .sink { [weak store, weak preferences] tickers in
-                    guard let preferences else { return }
+                    guard let preferences, let store else { return }
+                    for ticker in tickers {
+                        preferences.setConnected(true, for: "ticker:\(ticker)")
+                    }
                     let providers: [UsageProvider] = tickers.map { ticker in
                         StockTickerProvider(
                             ticker: ticker,
@@ -265,8 +268,28 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                             getBaseURL: { [weak preferences] in preferences?.opsOddsBaseURL ?? "https://www.opsodds.com" }
                         )
                     }
-                    store?.registerTickerProviders(providers)
+                    store.registerTickerProviders(providers)
                 }
+                .store(in: &cancellables)
+
+            let updateMarketsOn = { [weak store, weak preferences] in
+                guard let preferences, let store else { return }
+                let active = preferences.isMarketsOnActive
+                if store.isMarketsOnActive != active {
+                    store.isMarketsOnActive = active
+                }
+            }
+            updateMarketsOn()
+
+            preferences.$marketsOnEnabled
+                .combineLatest(preferences.$marketsOnForceActive)
+                .receive(on: RunLoop.main)
+                .sink { _ in updateMarketsOn() }
+                .store(in: &cancellables)
+
+            Timer.publish(every: 30, on: .main, in: .common)
+                .autoconnect()
+                .sink { _ in updateMarketsOn() }
                 .store(in: &cancellables)
             Costs.attach(to: store)
             deepSeek.onAuthenticated = { [weak store] in

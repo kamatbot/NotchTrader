@@ -203,21 +203,44 @@ struct OpsOddsCard: View {
 
             Spacer(minLength: 0)
 
-            // Footer: Timestamp and Open in OpsOdds
-            HStack(alignment: .center) {
-                Text("Schwab Real-Time · OpsOdds Intelligence")
-                    .font(.system(size: 10.5, weight: .medium))
-                    .foregroundStyle(Palette.textSecondary.opacity(0.8))
+            // Footer: Direct Fidelity Buy/Sell and OpsOdds Chart
+            HStack(alignment: .center, spacing: 8) {
+                // Fidelity Trade Button (Direct link to buy / sell ticker)
+                Button {
+                    let fidelityURL = "https://digital.fidelity.com/prgw/digital/research/quote/dashboard/summary?symbol=\(ticker)"
+                    if let url = URL(string: fidelityURL) {
+                        NSWorkspace.shared.open(url)
+                    }
+                } label: {
+                    HStack(spacing: 5) {
+                        Image(systemName: "dollarsign.circle.fill")
+                            .font(.system(size: 11, weight: .bold))
+                        Text("Trade on Fidelity")
+                            .font(.system(size: 11.5, weight: .bold))
+                        Image(systemName: "arrow.up.right")
+                            .font(.system(size: 9, weight: .bold))
+                    }
+                    .padding(.horizontal, 9)
+                    .padding(.vertical, 4.5)
+                    .background(Color(hex: 0x10B981).opacity(0.18))
+                    .foregroundStyle(Color(hex: 0x10B981))
+                    .clipShape(Capsule())
+                    .overlay(
+                        Capsule().stroke(Color(hex: 0x10B981).opacity(0.35), lineWidth: 1)
+                    )
+                }
+                .buttonStyle(.plain)
 
                 Spacer()
 
+                // OpsOdds Chart Link
                 Button {
                     if let url = URL(string: "https://www.opsodds.com/chart/\(ticker)") {
                         NSWorkspace.shared.open(url)
                     }
                 } label: {
                     HStack(spacing: 4) {
-                        Text("Open in OpsOdds")
+                        Text("OpsOdds Chart")
                             .font(.system(size: 11.5, weight: .bold))
                         Image(systemName: "arrow.up.right")
                             .font(.system(size: 9.5, weight: .bold))

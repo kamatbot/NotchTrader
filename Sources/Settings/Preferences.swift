@@ -65,7 +65,32 @@ final class Preferences: ObservableObject {
 
     /// User-configured stock tickers displayed on NotchTrader.
     @Published var configuredTickers: [String] {
-        didSet { defaults.set(configuredTickers, forKey: Keys.configuredTickers) }
+        didSet {
+            defaults.set(configuredTickers, forKey: Keys.configuredTickers)
+            Self.saveTickersToBackup(configuredTickers)
+        }
+    }
+
+    /// Tickers available in the quick-add bar (popular + all user-added tickers).
+    @Published var quickAddTickers: [String] {
+        didSet { defaults.set(quickAddTickers, forKey: Keys.quickAddTickers) }
+    }
+
+    /// "Markets On" mode: Automatically activates during US market hours (9:30 AM - 4:00 PM ET, Mon-Fri).
+    /// During this time, AI usage circles are hidden, more tickers are shown, and refresh runs every 5 seconds.
+    @Published var marketsOnEnabled: Bool {
+        didSet { defaults.set(marketsOnEnabled, forKey: Keys.marketsOnEnabled) }
+    }
+
+    /// Developer / testing override to force Markets On active outside US market hours.
+    @Published var marketsOnForceActive: Bool {
+        didSet { defaults.set(marketsOnForceActive, forKey: Keys.marketsOnForceActive) }
+    }
+
+    /// Whether Markets On is actively in effect right now.
+    var isMarketsOnActive: Bool {
+        guard marketsOnEnabled else { return false }
+        return marketsOnForceActive || USMarketHours.isMarketOpen()
     }
 
     /// Base URL for the OpsOdds backend.
@@ -78,7 +103,7 @@ final class Preferences: ObservableObject {
         didSet { defaults.set(opsOddsDeviceId, forKey: Keys.opsOddsDeviceId) }
     }
 
-    /// Refresh interval for live quotes and OpsOdds scores.
+    /// Refresh interval for live quotes and OpsOdds scores outside Markets On.
     @Published var opsOddsRefreshInterval: Double {
         didSet { defaults.set(opsOddsRefreshInterval, forKey: Keys.opsOddsRefreshInterval) }
     }
@@ -608,6 +633,9 @@ final class Preferences: ObservableObject {
         static let lmstudioEndpoint = "lmstudioEndpoint"
         static let omlxEndpoint = "omlxEndpoint"
         static let configuredTickers = "configuredTickers"
+        static let quickAddTickers = "quickAddTickers"
+        static let marketsOnEnabled = "marketsOnEnabled"
+        static let marketsOnForceActive = "marketsOnForceActive"
         static let opsOddsBaseURL = "opsOddsBaseURL"
         static let opsOddsDeviceId = "opsOddsDeviceId"
         static let opsOddsRefreshInterval = "opsOddsRefreshInterval"
@@ -758,13 +786,58 @@ final class Preferences: ObservableObject {
         return migrated
     }
 
+    nonisolated private static var tickersBackupURL: URL {
+        let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+        let dir = appSupport.appendingPathComponent("NotchTrader", isDirectory: true)
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        return dir.appendingPathComponent("tickers.json")
+    }
+
+    nonisolated static func saveTickersToBackup(_ tickers: [String]) {
+        try? JSONEncoder().encode(tickers).write(to: tickersBackupURL)
+    }
+
     nonisolated static func storedConfiguredTickers(
         defaults: UserDefaults = .standard
     ) -> [String] {
-        if let list = defaults.stringArray(forKey: Keys.configuredTickers), !list.isEmpty {
+        if let list = defaults.stringArray(forKey: Keys.configuredTickers) {
             return list
         }
-        return ["SPY", "QQQ", "AAPL"]
+        if let data = try? Data(contentsOf: tickersBackupURL),
+           let list = try? JSONDecoder().decode([String].self, from: data) {
+            defaults.set(list, forKey: Keys.configuredTickers)
+            return list
+        }
+        let initial = ["SPY", "QQQ", "AAPL"]
+        defaults.set(initial, forKey: Keys.configuredTickers)
+        saveTickersToBackup(initial)
+        return initial
+    }
+
+    nonisolated static func storedQuickAddTickers(
+        defaults: UserDefaults = .standard
+    ) -> [String] {
+        if let list = defaults.stringArray(forKey: Keys.quickAddTickers), !list.isEmpty {
+            return list
+        }
+        let popular = ["SPY", "QQQ", "AAPL", "NVDA", "MSFT", "TSLA", "AMZN", "VOO"]
+        defaults.set(popular, forKey: Keys.quickAddTickers)
+        return popular
+    }
+
+    nonisolated static func storedMarketsOnEnabled(
+        defaults: UserDefaults = .standard
+    ) -> Bool {
+        if defaults.object(forKey: Keys.marketsOnEnabled) != nil {
+            return defaults.bool(forKey: Keys.marketsOnEnabled)
+        }
+        return true
+    }
+
+    nonisolated static func storedMarketsOnForceActive(
+        defaults: UserDefaults = .standard
+    ) -> Bool {
+        defaults.bool(forKey: Keys.marketsOnForceActive)
     }
 
     nonisolated static func storedOpsOddsBaseURL(
@@ -1104,6 +1177,9 @@ final class Preferences: ObservableObject {
         }
         self.remoteHosts = Self.storedRemoteHosts(defaults: defaults)
         self.configuredTickers = Self.storedConfiguredTickers(defaults: defaults)
+        self.quickAddTickers = Self.storedQuickAddTickers(defaults: defaults)
+        self.marketsOnEnabled = Self.storedMarketsOnEnabled(defaults: defaults)
+        self.marketsOnForceActive = Self.storedMarketsOnForceActive(defaults: defaults)
         self.opsOddsBaseURL = Self.storedOpsOddsBaseURL(defaults: defaults)
         self.opsOddsDeviceId = defaults.string(forKey: Keys.opsOddsDeviceId) ?? ""
         self.opsOddsRefreshInterval = Self.storedOpsOddsRefreshInterval(defaults: defaults)
@@ -1236,7 +1312,8 @@ final class Preferences: ObservableObject {
     /// Claude and Codex stay on for a first install and for a newly discovered
     /// profile. Everyone else starts off.
     nonisolated static func isDefaultOnFamily(_ providerID: String) -> Bool {
-        ClaudeProfile.isClaude(providerID: providerID)
+        if providerID.hasPrefix("ticker:") { return true }
+        return ClaudeProfile.isClaude(providerID: providerID)
             || CodexProfile.isCodex(providerID: providerID)
     }
 
@@ -1247,6 +1324,9 @@ final class Preferences: ObservableObject {
     }
 
     func isConnected(_ providerID: String) -> Bool {
+        if providerID.hasPrefix("ticker:") {
+            return true
+        }
         if Self.isModelCell(providerID) {
             return !disabledModels.contains(providerID)
         }

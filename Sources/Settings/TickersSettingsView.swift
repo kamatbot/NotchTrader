@@ -14,6 +14,64 @@ struct TickersSettingsView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
+            // Markets On Mode Section
+            GroupBox {
+                VStack(alignment: .leading, spacing: 12) {
+                    HStack(alignment: .top) {
+                        VStack(alignment: .leading, spacing: 3) {
+                            HStack(spacing: 8) {
+                                Text("Markets On")
+                                    .font(.headline)
+
+                                HStack(spacing: 5) {
+                                    Circle()
+                                        .fill(preferences.isMarketsOnActive ? Color.green : Color.secondary.opacity(0.6))
+                                        .frame(width: 8, height: 8)
+                                    Text(preferences.isMarketsOnActive ? "Active (5s Refreshes · Tickers Only)" : "Standby")
+                                        .font(.caption)
+                                        .fontWeight(.semibold)
+                                        .foregroundStyle(preferences.isMarketsOnActive ? Color.green : Color.secondary)
+                                }
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 3)
+                                .background(preferences.isMarketsOnActive ? Color.green.opacity(0.12) : Color.white.opacity(0.06))
+                                .clipShape(Capsule())
+                            }
+
+                            Text("Automatically activates when US stock markets are open (Mon–Fri, 9:30 AM – 4:00 PM ET). Hides AI usage circles to display more stock tickers on the notch, and speeds up quote refreshes to every 5 seconds.")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+
+                        Spacer()
+
+                        Toggle("", isOn: $preferences.marketsOnEnabled)
+                            .toggleStyle(.switch)
+                    }
+
+                    Divider()
+
+                    HStack {
+                        Text("US Market Status:")
+                            .font(.callout)
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                        Text(USMarketHours.statusDescription())
+                            .font(.system(.callout, design: .monospaced))
+                            .fontWeight(.medium)
+                            .foregroundStyle(USMarketHours.isMarketOpen() ? Color.green : Color.primary)
+                    }
+
+                    HStack {
+                        Toggle("Force Active for Testing (Bypass US Market Hours)", isOn: $preferences.marketsOnForceActive)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                    }
+                }
+                .padding(10)
+            }
+
             // Ticker Configuration Section
             GroupBox {
                 VStack(alignment: .leading, spacing: 14) {
@@ -66,7 +124,7 @@ struct TickersSettingsView: View {
 
                     // Add Custom Ticker
                     HStack {
-                        TextField("Enter symbol (e.g. SPY, NVDA)", text: $newTickerText)
+                        TextField("Enter symbol (e.g. SPY, NVDA, AAPL)", text: $newTickerText)
                             .textFieldStyle(.roundedBorder)
                             .onSubmit {
                                 addTicker(newTickerText)
@@ -86,7 +144,7 @@ struct TickersSettingsView: View {
 
                         ScrollView(.horizontal, showsIndicators: false) {
                             HStack(spacing: 6) {
-                                ForEach(popularTickers, id: \.self) { sym in
+                                ForEach(preferences.quickAddTickers, id: \.self) { sym in
                                     let isAdded = preferences.configuredTickers.contains(sym)
                                     Button {
                                         if isAdded {
@@ -300,8 +358,14 @@ struct TickersSettingsView: View {
 
     private func addTicker(_ text: String) {
         let sym = text.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
-        guard !sym.isEmpty, !preferences.configuredTickers.contains(sym) else { return }
-        preferences.configuredTickers.append(sym)
+        guard !sym.isEmpty else { return }
+        if !preferences.quickAddTickers.contains(sym) {
+            preferences.quickAddTickers.append(sym)
+        }
+        if !preferences.configuredTickers.contains(sym) {
+            preferences.configuredTickers.append(sym)
+            preferences.setConnected(true, for: "ticker:\(sym)")
+        }
         newTickerText = ""
     }
 
