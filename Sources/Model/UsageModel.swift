@@ -364,6 +364,10 @@ struct ProviderSnapshot: Identifiable, Equatable {
                              sourceProviderID: id)
         }
     }
+    var isStockUp: Bool {
+        (opsOddsScore?.priceChange ?? 0) >= 0
+    }
+
     /// Codex's account-wide token activity, when its profile endpoint returned
     /// it. The optional top model is an enrichment from the desktop breakdown
     /// endpoint; it never changes the profile token buckets. Other providers

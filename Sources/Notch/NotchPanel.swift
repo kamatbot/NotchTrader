@@ -45,6 +45,7 @@ final class NotchPanel: NSPanel {
             || startsDrag?(event.locationInWindow) == true
         guard carries, onDrag != nil else {
             onClick?(event.locationInWindow)
+            super.mouseDown(with: event)
             return
         }
         onDragStart?()

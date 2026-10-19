@@ -50,6 +50,7 @@ struct ProviderRing: View {
     var weeklyRing: WeeklyRing = .off
     var bandOverride: UsageBand? = nil
     var tickerText: String? = nil
+    var isStockUp: Bool? = nil
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.codenotchReduceTransparency) private var reduceTransparency
@@ -151,135 +152,92 @@ struct ProviderRing: View {
 
     var body: some View {
         ZStack {
-            // Under the group that dims a stale reading, and so under the
-            // glyph too: whether an agent is working is known first-hand and
-            // never stale, the same reason the spinning arc sits outside that
-            // group.
-            busyWave
-
-            // Dimming applies to the usage reading only. Whether Claude is
-            // working right now is known first-hand and stays at full strength
-            // even when the percentage behind it has gone stale.
-            ZStack {
+            if let tickerText, !tickerText.isEmpty {
+                // Stock Ticker: Clean solid circle with no animation
                 Circle()
-                    .strokeBorder(Palette.ringTrack, lineWidth: NotchLayout.trackStroke)
+                    .inset(by: NotchLayout.progressStroke / 2)
+                    .stroke(
+                        (isStockUp ?? true) ? Color(hex: 0x10B981) : Color(hex: 0xEF4444),
+                        lineWidth: NotchLayout.progressStroke
+                    )
 
-                if localPerformance != nil || localContextFraction != nil {
-                    // Two facts on one ring: the arc is the context filling up,
-                    // the colour is the last response's speed. Inset by half the
-                    // stroke so a full arc lands exactly where the solid
-                    // `strokeBorder` ring used to, and a runtime with no context
-                    // reading looks as it always did. Grey until a speed exists:
-                    // the quota colours would say something a local model has
-                    // no quota to mean.
-                    Circle()
-                        .inset(by: NotchLayout.progressStroke / 2)
-                        .trim(from: 0, to: localSweep)
-                        .stroke(
-                            localPerformance?.band.color ?? Palette.textSecondary,
-                            style: StrokeStyle(lineWidth: NotchLayout.progressStroke, lineCap: .round)
-                        )
-                        .rotationEffect(.degrees(-90))
-                        .animation(NotchMotion.reading, value: localSweep)
-                        .animation(NotchMotion.reading, value: localPerformance?.band)
-                } else if usedFraction != nil {
-                    Circle()
-                        .inset(by: NotchLayout.trackStroke / 2)
-                        .trim(from: 0, to: sweep)
-                        .stroke(
-                            primaryRingColor,
-                            style: StrokeStyle(lineWidth: NotchLayout.progressStroke, lineCap: .round)
-                        )
-                        // Refreshing spins the reading itself rather than
-                        // overlaying a separate spinner: the thing being
-                        // refetched is the thing that should move, and a second
-                        // arc on the same track only competes with it.
-                        .rotationEffect(.degrees(-90 + spin))
-                        // A ring that snaps to a new value reads as a glitch; one
-                        // that sweeps reads as a measurement being taken.
-                        .animation(NotchMotion.reading, value: sweep)
-                        .animation(NotchMotion.reading, value: band)
-                }
+                Text(tickerText)
+                    .font(.system(size: tickerText.count > 3 ? 7.5 : 8.5, weight: .black, design: .rounded))
+                    .foregroundStyle(Palette.textPrimary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+            } else {
+                busyWave
 
-                // The weekly limit, when there is one and it has been asked
-                // for. Same start and direction as the headline arc, so the
-                // two are read the same way round; thinner and at its own
-                // radius, so which is which never has to be worked out.
-                //
-                // It carries its own band colour rather than borrowing the
-                // headline's: a session at 12% beside a week at 91% is exactly
-                // the case this exists for, and painting them the same colour
-                // would hide it. Held slightly back in opacity so the headline
-                // stays the one the eye lands on first.
-                if let radius = weeklyRing.radius, weeklyFraction != nil, !isWorking {
-                    let inset = NotchLayout.ringDiameter / 2 - radius
-
-                    // A track of its own, for the same reason the headline has
-                    // one: a week nobody has spent yet draws an arc of zero
-                    // length, and without something behind it that is
-                    // indistinguishable from the feature being broken. Codex
-                    // opened its week at 0% and read as missing.
+                ZStack {
                     Circle()
-                        .inset(by: inset)
-                        .stroke(Palette.ringTrack,
+                        .strokeBorder(Palette.ringTrack, lineWidth: NotchLayout.trackStroke)
+
+                    if localPerformance != nil || localContextFraction != nil {
+                        Circle()
+                            .inset(by: NotchLayout.progressStroke / 2)
+                            .trim(from: 0, to: localSweep)
+                            .stroke(
+                                localPerformance?.band.color ?? Palette.textSecondary,
+                                style: StrokeStyle(lineWidth: NotchLayout.progressStroke, lineCap: .round)
+                            )
+                            .rotationEffect(.degrees(-90))
+                            .animation(NotchMotion.reading, value: localSweep)
+                            .animation(NotchMotion.reading, value: localPerformance?.band)
+                    } else if usedFraction != nil {
+                        Circle()
+                            .inset(by: NotchLayout.trackStroke / 2)
+                            .trim(from: 0, to: sweep)
+                            .stroke(
+                                primaryRingColor,
+                                style: StrokeStyle(lineWidth: NotchLayout.progressStroke, lineCap: .round)
+                            )
+                            .rotationEffect(.degrees(-90 + spin))
+                            .animation(NotchMotion.reading, value: sweep)
+                            .animation(NotchMotion.reading, value: band)
+                    }
+
+                    if let radius = weeklyRing.radius, weeklyFraction != nil, !isWorking {
+                        let inset = NotchLayout.ringDiameter / 2 - radius
+
+                        Circle()
+                            .inset(by: inset)
+                            .stroke(Palette.ringTrack,
+                                    style: StrokeStyle(lineWidth: NotchLayout.weeklyRingStroke,
+                                                       dash: weeklyRingDashed ? [4, 2] : []))
+                            .opacity(reduceTransparency ? 1 : 0.7)
+
+                        Circle()
+                            .inset(by: inset)
+                            .trim(from: 0, to: weeklySweep)
+                            .stroke(
+                                weeklyRingColor,
                                 style: StrokeStyle(lineWidth: NotchLayout.weeklyRingStroke,
-                                                   dash: weeklyRingDashed ? [4, 2] : []))
-                        .opacity(reduceTransparency ? 1 : 0.7)
+                                                   lineCap: weeklyRingDashed ? .butt : .round,
+                                                   dash: weeklyRingDashed ? [4, 2] : [])
+                            )
+                            .opacity(reduceTransparency ? 1 : 0.8)
+                            .rotationEffect(.degrees(-90))
+                            .animation(NotchMotion.reading, value: weeklySweep)
+                            .animation(NotchMotion.reading, value: weeklyBand)
+                    }
 
-                    Circle()
-                        .inset(by: inset)
-                        .trim(from: 0, to: weeklySweep)
-                        .stroke(
-                            weeklyRingColor,
-                            style: StrokeStyle(lineWidth: NotchLayout.weeklyRingStroke,
-                                               lineCap: weeklyRingDashed ? .butt : .round,
-                                               dash: weeklyRingDashed ? [4, 2] : [])
-                        )
-                        .opacity(reduceTransparency ? 1 : 0.8)
-                        .rotationEffect(.degrees(-90))
-                        .animation(NotchMotion.reading, value: weeklySweep)
-                        .animation(NotchMotion.reading, value: weeklyBand)
-                }
-
-                if let tickerText, !tickerText.isEmpty {
-                    Text(tickerText)
-                        .font(.system(size: tickerText.count > 3 ? 7.5 : 8.5, weight: .black, design: .rounded))
-                        .foregroundStyle(Palette.textPrimary)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.7)
-                } else {
                     ProviderGlyphView(glyph: glyph, customIconFilename: customIconFilename)
                         .foregroundStyle(Palette.textPrimary)
-                        // A spent limit dims its glyph so the ring reads as "waiting".
-                        // Under reduce-transparency, boost opacity so it stays legible without low alpha.
                         .opacity(band == .exhausted ? (reduceTransparency ? 0.7 : 0.35) : 1)
                 }
-            }
-            .opacity(isStale ? (reduceTransparency ? 0.75 : 0.45) : 1)
+                .opacity(isStale ? (reduceTransparency ? 0.75 : 0.45) : 1)
 
-            if let activity, activity.state != .idle {
-                ActivityArc(summary: activity)
+                if let activity, activity.state != .idle {
+                    ActivityArc(summary: activity)
+                }
             }
         }
         .frame(width: NotchLayout.ringDiameter, height: NotchLayout.ringDiameter)
-        // Pressed in while it works, and released when the answer lands. The
-        // ring is the button, so the ring is what should feel pressed.
-        .scaleEffect(isRefreshing ? 0.93 : 1)
+        .scaleEffect((tickerText == nil && isRefreshing) ? 0.93 : 1)
         .animation(.spring(response: 0.3, dampingFraction: 0.62), value: isRefreshing)
         .onChange(of: isRefreshing) { _, refreshing in
-            guard refreshing, !reduceMotion else { return }
-            // Exactly one turn, and it stops by itself.
-            //
-            // The obvious spelling is a `repeatForever` linear spin started on
-            // the way in and cancelled on the way out — but `repeatForever` does
-            // not stop when you set the value back, and if the value you set is
-            // the one it is already animating toward, nothing changes and it
-            // simply keeps going. The ring then spins for ever after a refresh
-            // that finished half a second in.
-            //
-            // A single finite turn has no cancellation problem at all: 360° is
-            // the same angle as 0°, so it lands exactly where the reading
-            // belongs. It eases out, so it settles rather than stopping dead.
+            guard tickerText == nil, refreshing, !reduceMotion else { return }
             withAnimation(.timingCurve(0.32, 0, 0.14, 1, duration: 0.95)) {
                 spin += 360
             }
@@ -412,7 +370,8 @@ struct ProviderCell: View {
                 weeklyFraction: snapshot.hasReading ? snapshot.weeklyFraction : nil,
                 weeklyRing: weeklyRing,
                 bandOverride: snapshot.bandOverride,
-                tickerText: snapshot.kind == .stockTicker ? snapshot.displayName : nil
+                tickerText: snapshot.kind == .stockTicker ? snapshot.displayName : nil,
+                isStockUp: snapshot.kind == .stockTicker ? snapshot.isStockUp : nil
             )
             if showsReading { reading }
         }
@@ -583,6 +542,17 @@ struct ProviderReading: View {
 
     /// A dash, not "0%": nothing read is not the same as nothing used.
     var text: String {
+        if snapshot.kind == .stockTicker {
+            if let score = snapshot.opsOddsScore, let pct = score.priceChangePercent {
+                let sign = pct >= 0 ? "+" : ""
+                return String(format: "%@%.1f%%", sign, pct)
+            } else if let score = snapshot.opsOddsScore, let change = score.priceChange, let price = score.currentPrice, price > 0 {
+                let pct = (change / (price - change)) * 100
+                let sign = pct >= 0 ? "+" : ""
+                return String(format: "%@%.1f%%", sign, pct)
+            }
+            return snapshot.headlineText(showingRemaining: false)
+        }
         guard snapshot.hasReading else { return "—" }
         guard let weekly = weeklyReading else { return snapshot.headlineText(showingRemaining: showsRemaining) }
         // The second number flips with the first: in remaining mode both ends
@@ -604,7 +574,10 @@ struct ProviderReading: View {
 
     /// Secondary while dimmed or while a local speed is still unmeasured.
     private var foreground: Color {
-        isDimmed || (snapshot.showsLocalPerformance && snapshot.localPerformance == nil)
+        if snapshot.kind == .stockTicker {
+            return snapshot.isStockUp ? Color(hex: 0x10B981) : Color(hex: 0xEF4444)
+        }
+        return isDimmed || (snapshot.showsLocalPerformance && snapshot.localPerformance == nil)
             ? Palette.textSecondary : Palette.textPrimary
     }
 

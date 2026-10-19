@@ -1565,8 +1565,13 @@ final class NotchWindowController {
         if notchRect.contains(local),
            let index = cellIndex(along: placement.along(of: local)),
            model.snapshots.indices.contains(index) {
-            if let onRefreshProvider {
-                let snapshot = model.snapshots[index]
+            let snapshot = model.snapshots[index]
+            if snapshot.kind == .stockTicker {
+                let sym = snapshot.displayName.uppercased()
+                if let url = URL(string: "https://digital.fidelity.com/prgw/digital/research/quote/dashboard/summary?symbol=\(sym)") {
+                    NSWorkspace.shared.open(url)
+                }
+            } else if let onRefreshProvider {
                 Task { await model.refresh(snapshot, using: onRefreshProvider) }
             }
         }
@@ -2016,6 +2021,64 @@ final class NotchWindowController {
             menu.addItem(item)
         }
 
+        // If hovered over a stock ticker, or if any stock tickers exist
+        if let hovered = model.hoveredIndex, model.snapshots.indices.contains(hovered),
+           model.snapshots[hovered].kind == .stockTicker {
+            let ticker = model.snapshots[hovered].displayName.uppercased()
+            menu.addItem(.separator())
+            let fidelityItem = NSMenuItem(
+                title: "Trade \(ticker) on Fidelity.com…",
+                action: #selector(MenuActions.openFidelityDirect(_:)),
+                keyEquivalent: ""
+            )
+            fidelityItem.target = menuActions
+            fidelityItem.representedObject = ticker
+            fidelityItem.isEnabled = true
+            menu.addItem(fidelityItem)
+
+            let opsoddsItem = NSMenuItem(
+                title: "View \(ticker) on OpsOdds.com…",
+                action: #selector(MenuActions.openOpsOddsDirect(_:)),
+                keyEquivalent: ""
+            )
+            opsoddsItem.target = menuActions
+            opsoddsItem.representedObject = ticker
+            opsoddsItem.isEnabled = true
+            menu.addItem(opsoddsItem)
+        } else {
+            let stockSnapshots = model.snapshots.filter { $0.kind == .stockTicker }
+            if !stockSnapshots.isEmpty {
+                menu.addItem(.separator())
+                for stock in stockSnapshots {
+                    let ticker = stock.displayName.uppercased()
+                    let subMenu = NSMenu()
+                    let trade = NSMenuItem(
+                        title: "Trade on Fidelity.com…",
+                        action: #selector(MenuActions.openFidelityDirect(_:)),
+                        keyEquivalent: ""
+                    )
+                    trade.target = menuActions
+                    trade.representedObject = ticker
+                    trade.isEnabled = true
+                    subMenu.addItem(trade)
+
+                    let viewOps = NSMenuItem(
+                        title: "View on OpsOdds.com…",
+                        action: #selector(MenuActions.openOpsOddsDirect(_:)),
+                        keyEquivalent: ""
+                    )
+                    viewOps.target = menuActions
+                    viewOps.representedObject = ticker
+                    viewOps.isEnabled = true
+                    subMenu.addItem(viewOps)
+
+                    let stockItem = NSMenuItem(title: "$\(ticker)", action: nil, keyEquivalent: "")
+                    stockItem.submenu = subMenu
+                    menu.addItem(stockItem)
+                }
+            }
+        }
+
         // The dock style draws no settings button, so this is the way to
         // Settings from the notch itself there.
         let settings = NSMenuItem(
@@ -2028,7 +2091,7 @@ final class NotchWindowController {
         menu.addItem(settings)
         menu.addItem(.separator())
         menu.addItem(
-            withTitle: L10n.t("Quit Codenotch"),
+            withTitle: L10n.t("Quit NotchTrader"),
             action: #selector(NSApplication.terminate(_:)),
             keyEquivalent: "q"
         ).isEnabled = true
@@ -2067,6 +2130,20 @@ final class MenuActions: NSObject {
     @objc func refreshNow(_ sender: Any?) { refresh() }
     @objc func togglePinned(_ sender: Any?) { pin() }
     @objc func openSettings(_ sender: Any?) { settings() }
+
+    @objc func openFidelityDirect(_ sender: Any?) {
+        guard let item = sender as? NSMenuItem, let ticker = item.representedObject as? String else { return }
+        if let url = URL(string: "https://digital.fidelity.com/prgw/digital/research/quote/dashboard/summary?symbol=\(ticker)") {
+            NSWorkspace.shared.open(url)
+        }
+    }
+
+    @objc func openOpsOddsDirect(_ sender: Any?) {
+        guard let item = sender as? NSMenuItem, let ticker = item.representedObject as? String else { return }
+        if let url = URL(string: "https://opsodds.com/dashboard?ticker=\(ticker)") {
+            NSWorkspace.shared.open(url)
+        }
+    }
 
     @objc func signIn(_ sender: Any?) {
         guard let item = sender as? NSMenuItem else { return }
