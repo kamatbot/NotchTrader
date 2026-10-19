@@ -940,9 +940,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 .sink { [weak statusItem] snapshots, paced in
                     let snapshots = DailyPace.apply(to: snapshots, enabled: paced)
                     statusItem?.snapshots = snapshots
-                    notifier.observe(snapshots)
-                    resetWatcher.observe(snapshots)
-                    limitWatcher.observe(snapshots)
+                    let usageSnapshots = snapshots.filter { $0.kind != .stockTicker }
+                    notifier.observe(usageSnapshots)
+                    resetWatcher.observe(usageSnapshots)
+                    limitWatcher.observe(usageSnapshots)
                 }
                 .store(in: &cancellables)
             store.start()

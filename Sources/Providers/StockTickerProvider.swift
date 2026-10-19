@@ -45,12 +45,11 @@ final class StockTickerProvider: UsageProvider {
             bandOverride = .critical // Red / Caution / Avoid
         }
 
-        let fraction = min(max(Double(scoreVal) / 10.0, 0.05), 1.0)
         let primaryWindow = LimitWindow(
             id: "primary",
             group: nil,
             label: ticker,
-            usedFraction: fraction,
+            usedFraction: nil,
             remaining: nil,
             used: nil,
             usedText: score.formattedPrice,
