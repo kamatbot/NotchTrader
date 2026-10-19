@@ -277,14 +277,15 @@ struct OpsOddsCard: View {
 
                 Spacer()
 
-                // OpsOdds Chart Link
+                // OpsOdds Link
                 Button {
-                    if let url = URL(string: "https://www.opsodds.com/chart/\(ticker)") {
+                    let sym = ticker.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+                    if let url = URL(string: "https://www.opsodds.com/ticker/\(sym)") {
                         NSWorkspace.shared.open(url)
                     }
                 } label: {
                     HStack(spacing: 4) {
-                        Text("OpsOdds Chart")
+                        Text("OpsOdds")
                             .font(.system(size: 11.5, weight: .bold))
                         Image(systemName: "arrow.up.right")
                             .font(.system(size: 9.5, weight: .bold))

@@ -2140,7 +2140,8 @@ final class MenuActions: NSObject {
 
     @objc func openOpsOddsDirect(_ sender: Any?) {
         guard let item = sender as? NSMenuItem, let ticker = item.representedObject as? String else { return }
-        if let url = URL(string: "https://opsodds.com/dashboard?ticker=\(ticker)") {
+        let sym = ticker.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+        if let url = URL(string: "https://www.opsodds.com/ticker/\(sym)") {
             NSWorkspace.shared.open(url)
         }
     }
