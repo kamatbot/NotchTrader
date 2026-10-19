@@ -275,8 +275,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             let updateMarketsOn = { [weak store, weak preferences] in
                 guard let preferences, let store else { return }
                 let active = preferences.isMarketsOnActive
-                if store.isMarketsOnActive != active {
-                    store.isMarketsOnActive = active
+                DispatchQueue.main.async {
+                    if store.isMarketsOnActive != active {
+                        store.isMarketsOnActive = active
+                    }
                 }
             }
             updateMarketsOn()

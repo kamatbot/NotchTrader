@@ -259,7 +259,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
         watchForClicksAway(in: window)
         // The window itself answers first, not the first text field in it.
         window.initialFirstResponder = nil
-        window.contentView = NSHostingView(
+        let hostingView = NSHostingView(
             rootView: SettingsView(preferences: preferences,
                                    providers: providers, phoneLinkPairing: phoneLinkPairing, phoneLinkRegistry: phoneLinkRegistry, phoneLinkServerStatus: phoneLinkServerStatus,
                                    signOut: signOut,
@@ -277,6 +277,8 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
                                    previewWeeklyLimitAlert: previewWeeklyLimitAlert,
                                    sendTestNotification: sendTestNotification)
         )
+        hostingView.sizingOptions = []
+        window.contentView = hostingView
         window.center()
         window.isReleasedWhenClosed = false
         self.window = window
