@@ -55,7 +55,7 @@ final class UsageLimitWatcher {
     }
 
     private func observe(_ snapshot: ProviderSnapshot) {
-        guard snapshot.kind != .stockTicker else { return }
+        guard snapshot.kind != .stockTicker, snapshot.kind != .swarm else { return }
         // Same rule as the reset watcher: an archived (stale) reading is not a
         // baseline, so the first live reading after one only records.
         guard !snapshot.status.isStale else {

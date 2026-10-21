@@ -80,7 +80,7 @@ final class UsageResetWatcher {
     }
 
     private func observe(_ snapshot: ProviderSnapshot) {
-        guard snapshot.kind != .stockTicker else { return }
+        guard snapshot.kind != .stockTicker, snapshot.kind != .swarm else { return }
         // An archived reading is not a baseline: at launch the store publishes
         // the last run's snapshot, marked stale, and the live fetch that
         // follows carries a newer reset date or a lower fraction, both of

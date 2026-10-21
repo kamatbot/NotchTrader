@@ -93,6 +93,29 @@ final class UsageStore: ObservableObject {
         refreshTickers(freshness: .live)
     }
 
+    /// Swarma cells come and go with the service's own worker and scope lists,
+    /// so unlike tickers an unchanged cell keeps its reading instead of being
+    /// reset to a placeholder every time a new one joins.
+    func registerSwarmProviders(_ swarm: [UsageProvider]) {
+        let swarmIDs = Set(swarm.map(\.id))
+        disconnected.subtract(swarmIDs)
+        providers.removeAll { $0.id.hasPrefix("swarm:") }
+        providers.append(contentsOf: swarm)
+        snapshots.removeAll { $0.id.hasPrefix("swarm:") && !swarmIDs.contains($0.id) }
+        let shown = Set(snapshots.map(\.id))
+        for provider in swarm where !shown.contains(provider.id) {
+            publish(Self.placeholder(provider))
+        }
+        updateNotchSnapshots()
+        refreshSwarm()
+    }
+
+    func refreshSwarm() {
+        for provider in providers where provider.kind == .swarm && !disconnected.contains(provider.id) {
+            _ = beginRefresh(provider, freshness: .live)
+        }
+    }
+
     /// Provider ids plus any model cells currently on screen.
     var knownIDs: [String] {
         Array(Set(providers.map(\.id) + snapshots.map(\.id) + localModelSummaries.map(\.id)))

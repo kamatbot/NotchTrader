@@ -94,6 +94,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var claudeProviders: [ClaudeOAuthProvider] = []
     /// MiniMax Platform sign-in sheet. Not a UsageProvider — that is MiniMaxProvider.
     private var miniMaxWeb: WebSessionProvider?
+    /// Decides which Swarma agent and swarm cells exist; see `SwarmaDirectory`.
+    private var swarmaDirectory: SwarmaDirectory?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         // Set here, not in the Info.plist: this call is applied at launch and
@@ -183,13 +185,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             let remoteProviders: [UsageProvider] = preferences.remoteHosts
                 .filter { $0.isEnabled && $0.isConfigured }
                 .map { $0.makeProvider() }
-            let tickerProviders: [UsageProvider] = preferences.configuredTickers.map { ticker in
+            let tickerProviders: [UsageProvider] = Preferences.showsTickers(
+                swarmaEnabled: preferences.swarmaEnabled,
+                replacesTickers: preferences.swarmaReplacesTickers
+            ) ? preferences.configuredTickers.map { ticker in
                 StockTickerProvider(
                     ticker: ticker,
                     getDeviceId: { [weak preferences] in preferences?.opsOddsDeviceId },
                     getBaseURL: { [weak preferences] in preferences?.opsOddsBaseURL ?? "https://www.opsodds.com" }
                 )
-            }
+            } : []
             let allProviders: [UsageProvider] = tickerProviders
                 + claudeProviders
                 + [CursorLocalProvider()]
@@ -253,7 +258,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     store?.registerRemoteProviders(providers)
                 }
                 .store(in: &cancellables)
+            // Swarma hides the tickers while it is on and asked to; the values
+            // come from the publishers, which fire before the property changes.
             preferences.$configuredTickers
+                .combineLatest(preferences.$swarmaEnabled, preferences.$swarmaReplacesTickers)
+                .map { tickers, swarma, replaces in
+                    Preferences.showsTickers(swarmaEnabled: swarma, replacesTickers: replaces) ? tickers : []
+                }
                 .removeDuplicates()
                 .receive(on: RunLoop.main)
                 .sink { [weak store, weak preferences] tickers in
@@ -271,6 +282,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     store.registerTickerProviders(providers)
                 }
                 .store(in: &cancellables)
+
+            let swarma = SwarmaDirectory(store: store)
+            self.swarmaDirectory = swarma
+            preferences.$swarmaEnabled
+                .removeDuplicates()
+                .receive(on: RunLoop.main)
+                .sink { [weak swarma] in swarma?.setEnabled($0) }
+                .store(in: &cancellables)
+            // A new address or token file is read on the next request; this
+            // only makes that request happen now rather than on the timer.
+            preferences.$swarmaServiceURL
+                .combineLatest(preferences.$swarmaTokenPath)
+                .dropFirst()
+                .debounce(for: .milliseconds(600), scheduler: RunLoop.main)
+                .sink { [weak swarma] _ in swarma?.sync() }
+                .store(in: &cancellables)
+            fleet.onCancelSwarmTask = { [weak swarma] target in
+                Task { await swarma?.cancel(target) }
+            }
 
             let updateMarketsOn = { [weak store, weak preferences] in
                 guard let preferences, let store else { return }
@@ -940,7 +970,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 .sink { [weak statusItem] snapshots, paced in
                     let snapshots = DailyPace.apply(to: snapshots, enabled: paced)
                     statusItem?.snapshots = snapshots
-                    let usageSnapshots = snapshots.filter { $0.kind != .stockTicker }
+                    let usageSnapshots = snapshots.filter { $0.kind != .stockTicker && $0.kind != .swarm }
                     notifier.observe(usageSnapshots)
                     resetWatcher.observe(usageSnapshots)
                     limitWatcher.observe(usageSnapshots)
