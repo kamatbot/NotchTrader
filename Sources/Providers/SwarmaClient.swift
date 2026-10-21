@@ -66,18 +66,48 @@ struct SwarmaStatus: Decodable, Equatable {
         }
     }
 
+    /// A chat that was active in the last 15 minutes, on any harness. Newer
+    /// services only; an older one sends none.
+    struct Session: Equatable {
+        let id: String
+        /// "claude-code", "codex", "antigravity", "dot", "grok" or "other".
+        let harness: String
+        let title: String
+        let scope: String?
+        let updatedAt: Date?
+    }
+
+    /// Where the service would send new work, and why. Newer services only.
+    struct Routing: Equatable {
+        struct Provider: Equatable {
+            let provider: String
+            let headroom: Double?
+            let liveWorker: Bool
+            let windows: [Usage.Window]
+        }
+        /// Nil when no vendor has room, or none has a live worker.
+        let recommended: String?
+        let reason: String?
+        let providers: [Provider]
+    }
+
     var workers: [Worker] = []
     var usage: [Usage] = []
     var scopes: [Scope] = []
     var recent: [TaskRow] = []
+    var sessions: [Session] = []
+    var routing: Routing?
     var generatedAt: Date?
 
     init(workers: [Worker] = [], usage: [Usage] = [], scopes: [Scope] = [],
-         recent: [TaskRow] = [], generatedAt: Date? = nil) {
+         recent: [TaskRow] = [], sessions: [Session] = [], routing: Routing? = nil,
+         generatedAt: Date? = nil) {
         self.workers = workers
         self.usage = usage
         self.scopes = scopes
         self.recent = recent
+        self.sessions = sessions
+        self.routing = routing
         self.generatedAt = generatedAt
     }
 }
@@ -90,7 +120,7 @@ private extension KeyedDecodingContainer {
 }
 
 extension SwarmaStatus {
-    private enum CodingKeys: String, CodingKey { case workers, usage, scopes, recent, generatedAt = "generated_at" }
+    private enum CodingKeys: String, CodingKey { case workers, usage, scopes, recent, sessions, routing, generatedAt = "generated_at" }
 
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
@@ -98,6 +128,8 @@ extension SwarmaStatus {
         usage = c.list(.usage)
         scopes = c.list(.scopes)
         recent = c.list(.recent)
+        sessions = c.list(.sessions)
+        routing = ((try? c.decodeIfPresent(Routing.self, forKey: .routing)) ?? nil)
         generatedAt = try c.decodeIfPresent(Date.self, forKey: .generatedAt)
     }
 }
@@ -145,6 +177,43 @@ extension SwarmaStatus.Scope: Decodable {
 }
 
 extension SwarmaStatus.TaskRow: Decodable {}
+
+extension SwarmaStatus.Session: Decodable {
+    private enum CodingKeys: String, CodingKey { case id, harness, title, scope, updatedAt = "updated_at" }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decodeIfPresent(String.self, forKey: .id) ?? ""
+        harness = try c.decodeIfPresent(String.self, forKey: .harness) ?? "other"
+        title = try c.decodeIfPresent(String.self, forKey: .title) ?? ""
+        scope = try c.decodeIfPresent(String.self, forKey: .scope)
+        // One unreadable timestamp must not cost the notch every chat.
+        updatedAt = (try? c.decodeIfPresent(Date.self, forKey: .updatedAt)) ?? nil
+    }
+}
+
+extension SwarmaStatus.Routing.Provider: Decodable {
+    private enum CodingKeys: String, CodingKey { case provider, headroom, liveWorker = "live_worker", windows }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        provider = try c.decode(String.self, forKey: .provider)
+        headroom = try c.decodeIfPresent(Double.self, forKey: .headroom)
+        liveWorker = try c.decodeIfPresent(Bool.self, forKey: .liveWorker) ?? false
+        windows = c.list(.windows)
+    }
+}
+
+extension SwarmaStatus.Routing: Decodable {
+    private enum CodingKeys: String, CodingKey { case recommended, reason, providers }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        recommended = try c.decodeIfPresent(String.self, forKey: .recommended)
+        reason = try c.decodeIfPresent(String.self, forKey: .reason)
+        providers = c.list(.providers)
+    }
+}
 
 /// A running task a cell can offer to cancel. The version is part of it
 /// because `task_cancel` refuses a stale one.

@@ -5,6 +5,7 @@ import Foundation
 enum SwarmaCells {
     static let agentPrefix = "swarm:agent:"
     static let scopePrefix = "swarm:scope:"
+    static let harnessPrefix = "swarm:harness:"
 
     /// The cell that stands in for the whole service when nothing has ever been
     /// read from it, so "Swarmaa not running" has somewhere to show.
@@ -12,10 +13,16 @@ enum SwarmaCells {
 
     static func agentID(_ name: String) -> String { agentPrefix + name }
     static func scopeID(_ scope: String) -> String { scopePrefix + scope }
+    static func harnessID(_ harness: String) -> String { harnessPrefix + harness }
 
     /// "project:demo" reads as "demo"; a scope without the prefix is left as it is.
     static func scopeLabel(_ scope: String) -> String {
         scope.hasPrefix("project:") ? String(scope.dropFirst("project:".count)) : scope
+    }
+
+    /// "codex" reads as "Codex"; routing names vendors, not harnesses.
+    static func vendorName(_ provider: String) -> String {
+        provider.prefix(1).uppercased() + provider.dropFirst()
     }
 
     /// The agent's vendor mark, reusing the marks the app already draws for
@@ -68,6 +75,11 @@ enum SwarmaCells {
                                               title: row.objective ?? task.taskId))
         }
 
+        // The worker the service would hand the next task to says so while it
+        // has nothing else to say; a busy one keeps showing its task.
+        let isNextUp = worker.live && worker.running.isEmpty
+            && status.routing?.recommended.map { worker.providers.contains($0) } == true
+
         let detail: String
         if !worker.live {
             detail = L10n.t("offline")
@@ -75,6 +87,8 @@ enum SwarmaCells {
             detail = status.recent.first(where: { $0.id == task.taskId })?.objective
                 ?? task.scope.map { L10n.t("running in \(scopeLabel($0))") }
                 ?? L10n.t("running")
+        } else if isNextUp {
+            detail = L10n.t("Next tasks → here") + " · " + L10n.t("idle")
         } else {
             detail = L10n.t("idle")
         }
@@ -100,6 +114,82 @@ enum SwarmaCells {
         )
         var snapshot = cell(id: agentID(name), name: name, glyph: glyph(forProvider: vendor), window: window)
         snapshot.swarmTasks = targets
+        if let reason = status.routing?.reason, !reason.isEmpty {
+            snapshot.windows.append(LimitWindow(id: "routing", label: L10n.t("Routing"), detail: reason))
+        }
+        return snapshot
+    }
+
+    // MARK: Services in use
+
+    /// What the harness cell is called. The five the service names are product
+    /// names, the same in every language; anything else is shown as sent.
+    static func harnessName(_ harness: String) -> String {
+        switch harness.lowercased() {
+        case "claude-code": return "Claude Code"
+        case "codex":       return "Codex"
+        case "antigravity": return "Antigravity"
+        case "grok":        return "Grok"
+        case "dot":         return "Dot"
+        case "other":       return L10n.t("Other")
+        default:            return harness.prefix(1).uppercased() + harness.dropFirst()
+        }
+    }
+
+    static func glyph(forHarness harness: String) -> ProviderGlyph {
+        switch harness.lowercased() {
+        case "claude-code": return .claude
+        case "codex":       return .openai
+        case "antigravity": return .antigravity
+        case "grok":        return .grok
+        default:            return .third   // dot, other, and whatever the service learns next
+        }
+    }
+
+    /// The harnesses with a chat in progress, each of which gets a cell.
+    static func activeHarnesses(in status: SwarmaStatus) -> [String] {
+        Array(Set(status.sessions.map(\.harness))).sorted()
+    }
+
+    /// Tooltip rows a harness cell lists before summarising the rest, so a busy
+    /// day cannot grow the card past the room the notch reserves for it.
+    static let maxSessionRows = 5
+
+    static func harnessSnapshot(harness: String, in status: SwarmaStatus, now: Date = Date()) -> ProviderSnapshot {
+        // Newest first; a chat with no timestamp is the oldest thing we know of.
+        let sessions = status.sessions.filter { $0.harness == harness }
+            .sorted { ($0.updatedAt ?? .distantPast) > ($1.updatedAt ?? .distantPast) }
+        let name = harnessName(harness)
+
+        let detail: String
+        if let latest = sessions.first {
+            detail = [latest.title, latest.scope.map(scopeLabel)].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: " · ")
+        } else {
+            detail = L10n.t("idle")
+        }
+        let count = sessions.count
+        let primary = LimitWindow(
+            id: "primary",
+            label: name,
+            used: count,
+            usedText: count == 1 ? L10n.t("1 chat") : L10n.t("\(count) chats"),
+            detail: detail,
+            bandOverride: .ample,
+            prefersUsedText: true
+        )
+        var snapshot = cell(id: harnessID(harness), name: name, glyph: glyph(forHarness: harness), window: primary)
+        // The headline row is the newest chat already; the rest follow it.
+        for session in sessions.prefix(maxSessionRows) {
+            let age = session.updatedAt.map { ElapsedCopy.ago(since: $0, now: now) }
+            snapshot.windows.append(LimitWindow(
+                id: "session:" + session.id,
+                label: session.title.isEmpty ? L10n.t("Untitled chat") : session.title,
+                detail: [session.scope.map(scopeLabel), age].compactMap { $0 }.joined(separator: " · ")
+            ))
+        }
+        if count > maxSessionRows {
+            snapshot.windows.append(LimitWindow(id: "more", label: L10n.t("\(count - maxSessionRows) more"), detail: ""))
+        }
         return snapshot
     }
 
@@ -210,6 +300,64 @@ final class SwarmScopeProvider: UsageProvider {
 
 }
 
+/// One cell per harness with a chat in progress; it goes when the last one
+/// has been quiet for the service's 15 minutes.
+final class SwarmHarnessProvider: UsageProvider {
+    let harness: String
+    private let client: SwarmaClient
+
+    var kind: ProviderKind { .swarm }
+    var id: String { SwarmaCells.harnessID(harness) }
+    var displayName: String { SwarmaCells.harnessName(harness) }
+    var glyph: ProviderGlyph { SwarmaCells.glyph(forHarness: harness) }
+
+    init(harness: String, client: SwarmaClient = .shared) {
+        self.harness = harness
+        self.client = client
+    }
+
+    func fetchSnapshot() async throws -> ProviderSnapshot {
+        do {
+            return SwarmaCells.harnessSnapshot(harness: harness, in: try await client.status())
+        } catch {
+            let failure = error as? SwarmaClient.Failure ?? .unreachable
+            return SwarmaCells.unavailable(id: id, name: displayName, glyph: glyph, detail: failure.message)
+        }
+    }
+}
+
+/// A change of where the service recommends sending new work.
+struct SwarmaRoutingChange: Equatable {
+    let from: String?
+    let to: String
+    let reason: String?
+
+    var title: String { L10n.t("Swarmaa switched to \(SwarmaCells.vendorName(to))") }
+    var body: String { reason ?? "" }
+}
+
+/// Reports a change of recommendation once. The first answer after launch only
+/// records, as `ThresholdNotifier` does: what the service already recommended
+/// when the app started is not news. An answer with no recommendation is
+/// remembered but never announced; there is nothing to switch to.
+@MainActor
+final class SwarmaRoutingWatcher {
+    private var seen = false
+    private var last: String?
+    private let deliver: (SwarmaRoutingChange) -> Void
+
+    init(deliver: @escaping (SwarmaRoutingChange) -> Void = { _ in }) {
+        self.deliver = deliver
+    }
+
+    func observe(_ routing: SwarmaStatus.Routing?) {
+        let current = routing?.recommended
+        defer { seen = true; last = current }
+        guard seen, let current, current != last else { return }
+        deliver(SwarmaRoutingChange(from: last, to: current, reason: routing?.reason))
+    }
+}
+
 /// Decides which Swarma cells exist, the way the configured list does for
 /// tickers — except that the list is whatever the service reports, so it is
 /// asked on a timer and the store is told when the set changes.
@@ -223,6 +371,15 @@ final class SwarmaDirectory {
     private var syncing = false
 
     private(set) var isEnabled = false
+
+    /// Whether harness cells exist. A change is applied by the next sync.
+    var showsChats = true {
+        didSet { if showsChats != oldValue { sync() } }
+    }
+
+    /// Told once each time the recommended vendor changes.
+    var onRoutingChange: ((SwarmaRoutingChange) -> Void)?
+    private lazy var routingWatcher = SwarmaRoutingWatcher { [weak self] in self?.onRoutingChange?($0) }
 
     init(client: SwarmaClient = .shared, store: UsageStore, interval: TimeInterval = 15) {
         self.client = client
@@ -267,7 +424,8 @@ final class SwarmaDirectory {
         let providers: [UsageProvider]?
         switch result {
         case .success(let status):
-            providers = Self.providers(for: status, client: client)
+            providers = Self.providers(for: status, client: client, showsChats: showsChats)
+            routingWatcher.observe(status.routing)
         case .failure:
             // Nothing has ever answered: one cell, so the notch says it.
             // Otherwise the cells already up flip to offline on refresh.
@@ -281,8 +439,10 @@ final class SwarmaDirectory {
         }
     }
 
-    nonisolated static func providers(for status: SwarmaStatus, client: SwarmaClient) -> [UsageProvider] {
+    nonisolated static func providers(for status: SwarmaStatus, client: SwarmaClient,
+                                      showsChats: Bool = true) -> [UsageProvider] {
         status.workers.map(\.name).sorted().map { SwarmAgentProvider(name: $0, client: client) }
+            + (showsChats ? SwarmaCells.activeHarnesses(in: status).map { SwarmHarnessProvider(harness: $0, client: client) } : [])
             + status.scopes.map(\.scope).sorted().map { SwarmScopeProvider(scope: $0, client: client) }
     }
 

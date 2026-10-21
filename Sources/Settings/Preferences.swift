@@ -125,6 +125,11 @@ final class Preferences: ObservableObject {
         didSet { defaults.set(swarmaTokenPath, forKey: Keys.swarmaTokenPath) }
     }
 
+    /// Whether each harness with a chat in progress gets a cell.
+    @Published var swarmaShowsChats: Bool {
+        didSet { defaults.set(swarmaShowsChats, forKey: Keys.swarmaShowsChats) }
+    }
+
     /// While Swarma is on, hide the stock tickers. Does nothing with Swarma off.
     @Published var swarmaReplacesTickers: Bool {
         didSet { defaults.set(swarmaReplacesTickers, forKey: Keys.swarmaReplacesTickers) }
@@ -665,6 +670,7 @@ final class Preferences: ObservableObject {
         static let swarmaServiceURL = "swarmaServiceURL"
         static let swarmaTokenPath = "swarmaTokenPath"
         static let swarmaReplacesTickers = "swarmaReplacesTickers"
+        static let swarmaShowsChats = "swarmaShowsChats"
         static let introducedOllama = "introducedOllama"
         static let migratedOllamaID = "migratedOllamaLocalID"
         static let ollamaMetricsEnabled = "ollamaMetricsEnabled"
@@ -907,6 +913,10 @@ final class Preferences: ObservableObject {
         }
         let path = (storedSwarmaTokenPath(defaults: defaults) as NSString).expandingTildeInPath
         return FileManager.default.fileExists(atPath: path)
+    }
+
+    nonisolated static func storedSwarmaShowsChats(defaults: UserDefaults = .standard) -> Bool {
+        defaults.object(forKey: Keys.swarmaShowsChats) as? Bool ?? true
     }
 
     nonisolated static func storedSwarmaReplacesTickers(defaults: UserDefaults = .standard) -> Bool {
@@ -1246,6 +1256,7 @@ final class Preferences: ObservableObject {
         self.swarmaServiceURL = Self.storedSwarmaServiceURL(defaults: defaults)
         self.swarmaTokenPath = Self.storedSwarmaTokenPath(defaults: defaults)
         self.swarmaReplacesTickers = Self.storedSwarmaReplacesTickers(defaults: defaults)
+        self.swarmaShowsChats = Self.storedSwarmaShowsChats(defaults: defaults)
         // Read from the system rather than from our own store: the user can turn
         // this off in System Settings, and a remembered `true` would then be a lie.
         self.launchAtLogin = Self.isRegisteredForLogin

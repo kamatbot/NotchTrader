@@ -15,6 +15,13 @@ struct SwarmaSettingsView: View {
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
 
+                Toggle("Show active chats", isOn: $preferences.swarmaShowsChats)
+                    .disabled(!preferences.swarmaEnabled)
+                Text("One cell per service with a chat in the last 15 minutes: Claude Code, Codex, Antigravity, Grok or Dot. It goes when the chats do.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+
                 Toggle("Show Swarmaa instead of stock tickers", isOn: $preferences.swarmaReplacesTickers)
                     .disabled(!preferences.swarmaEnabled)
             }

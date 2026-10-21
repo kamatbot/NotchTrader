@@ -290,6 +290,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 .receive(on: RunLoop.main)
                 .sink { [weak swarma] in swarma?.setEnabled($0) }
                 .store(in: &cancellables)
+            preferences.$swarmaShowsChats
+                .removeDuplicates()
+                .receive(on: RunLoop.main)
+                .sink { [weak swarma] in swarma?.showsChats = $0 }
+                .store(in: &cancellables)
+            swarma.onRoutingChange = { [weak self] change in self?.announceRouting(change) }
             // A new address or token file is read on the next request; this
             // only makes that request happen now rather than on the timer.
             preferences.$swarmaServiceURL
@@ -1326,6 +1332,29 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if !fleet.showResetAlert(notice, duration: 6.0) {
             ThresholdAlerts.deliver(alert)
         }
+    }
+
+    /// Swarmaa moved new work to another vendor. Same two forms as a limit
+    /// alert: the notch's card, or a banner on the Mac channel and wherever the
+    /// notch cannot show one. It follows the limit-reached switches because a
+    /// switch is what a spent limit causes; with those off it stays quiet.
+    @MainActor
+    private func announceRouting(_ change: SwarmaRoutingChange) {
+        guard let preferences,
+              preferences.announceSessionLimitReached || preferences.announceWeeklyLimitReached else { return }
+        let post = { ChannelNotifications.post(title: change.title, body: change.body, thread: "swarma.routing") }
+        guard preferences.notificationChannel == .notch, let fleet = notchFleet else {
+            post()
+            return
+        }
+        var notice = UsageResetEvent(providerID: SwarmaCells.agentPrefix + change.to,
+                                     providerName: SwarmaCells.vendorName(change.to), windowLabel: "",
+                                     glyph: SwarmaCells.glyph(forProvider: change.to),
+                                     previousFraction: 0, currentFraction: 0, resetsAt: nil)
+        notice.noticeTitle = change.title
+        notice.noticeSubtitle = change.body
+        notice.noticeStatus = ""
+        if !fleet.showResetAlert(notice, duration: 6.0) { post() }
     }
 
     /// The test from Settings, on whichever channel is chosen.
