@@ -36,6 +36,7 @@ final class NotchWindowController {
     var onOpenSettings: (() -> Void)?
     /// Cancel a running Swarma task, asked for from a cell's context menu.
     var onCancelSwarmTask: ((SwarmaCancelTarget) -> Void)?
+    var onReviewLessons: (() -> Void)?
     /// An ⌥-drag on the pill settled at a new `model.alongOffset`. The
     /// controller only holds the live value; persisting it per edge is
     /// Preferences' job, the same division `apply(edge:)` already keeps.
@@ -1568,7 +1569,9 @@ final class NotchWindowController {
            let index = cellIndex(along: placement.along(of: local)),
            model.snapshots.indices.contains(index) {
             let snapshot = model.snapshots[index]
-            if let onRefreshProvider {
+            if snapshot.id == SwarmaCells.lessonsID, let onReviewLessons {
+                onReviewLessons()
+            } else if let onRefreshProvider {
                 Task { await model.refresh(snapshot, using: onRefreshProvider) }
             }
         }
@@ -2018,6 +2021,16 @@ final class NotchWindowController {
             menu.addItem(item)
         }
 
+        if let hovered = model.hoveredIndex, model.snapshots.indices.contains(hovered),
+           model.snapshots[hovered].id == SwarmaCells.lessonsID {
+            menu.addItem(.separator())
+            let review = NSMenuItem(title: L10n.t("Review lessons…"),
+                                    action: #selector(MenuActions.reviewLessons(_:)), keyEquivalent: "")
+            review.target = menuActions
+            review.isEnabled = true
+            menu.addItem(review)
+        }
+
         // Only the cell under the pointer offers its running tasks.
         if let hovered = model.hoveredIndex, model.snapshots.indices.contains(hovered),
            model.snapshots[hovered].kind == .swarm {
@@ -2060,7 +2073,8 @@ final class NotchWindowController {
         signIn: { [weak self] index in self?.signInItems[safe: index]?.action() },
         togglePinned: { [weak self] in self?.togglePinned() },
         openSettings: { [weak self] in self?.onOpenSettings?() },
-        cancelSwarmTask: { [weak self] in self?.onCancelSwarmTask?($0) }
+        cancelSwarmTask: { [weak self] in self?.onCancelSwarmTask?($0) },
+        reviewLessons: { [weak self] in self?.onReviewLessons?() }
     )
 }
 
@@ -2073,14 +2087,17 @@ final class MenuActions: NSObject {
     private let pin: () -> Void
     private let settings: () -> Void
     private let cancelSwarm: (SwarmaCancelTarget) -> Void
+    private let lessons: () -> Void
 
     init(
         refresh: @escaping () -> Void,
         signIn: @escaping (Int) -> Void,
         togglePinned: @escaping () -> Void,
         openSettings: @escaping () -> Void,
-        cancelSwarmTask: @escaping (SwarmaCancelTarget) -> Void
+        cancelSwarmTask: @escaping (SwarmaCancelTarget) -> Void,
+        reviewLessons: @escaping () -> Void
     ) {
+        self.lessons = reviewLessons
         self.refresh = refresh
         self.signIn = signIn
         self.pin = togglePinned
@@ -2091,6 +2108,7 @@ final class MenuActions: NSObject {
     @objc func refreshNow(_ sender: Any?) { refresh() }
     @objc func togglePinned(_ sender: Any?) { pin() }
     @objc func openSettings(_ sender: Any?) { settings() }
+    @objc func reviewLessons(_ sender: Any?) { lessons() }
 
     @objc func cancelSwarmTask(_ sender: Any?) {
         guard let item = sender as? NSMenuItem, let task = item.representedObject as? SwarmaCancelTarget else { return }

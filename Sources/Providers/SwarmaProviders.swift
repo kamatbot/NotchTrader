@@ -6,6 +6,7 @@ enum SwarmaCells {
     static let agentPrefix = "swarm:agent:"
     static let scopePrefix = "swarm:scope:"
     static let harnessPrefix = "swarm:harness:"
+    static let lessonsID = "swarm:lessons"
 
     /// The cell that stands in for the whole service when nothing has ever been
     /// read from it, so "Swarmaa not running" has somewhere to show.
@@ -205,6 +206,22 @@ enum SwarmaCells {
         return snapshot
     }
 
+    // MARK: Lessons
+
+    /// "Lessons — 3 to review", amber: it needs a person but nothing is broken.
+    static func lessonsSnapshot(pending: Int) -> ProviderSnapshot {
+        let window = LimitWindow(
+            id: "primary",
+            label: L10n.t("Lessons"),
+            used: pending,
+            usedText: L10n.t("\(pending) to review"),
+            detail: L10n.t("Click to review"),
+            bandOverride: .watch,
+            prefersUsedText: true
+        )
+        return cell(id: lessonsID, name: L10n.t("Lessons"), glyph: .third, window: window)
+    }
+
     // MARK: Failure
 
     /// The cell when the service cannot be read. No ring and no number: what the
@@ -295,6 +312,28 @@ final class SwarmHarnessProvider: UsageProvider {
     func fetchSnapshot() async throws -> ProviderSnapshot {
         do {
             return SwarmaCells.harnessSnapshot(harness: harness, in: try await client.status())
+        } catch {
+            let failure = error as? SwarmaClient.Failure ?? .unreachable
+            return SwarmaCells.unavailable(id: id, name: displayName, glyph: glyph, detail: failure.message)
+        }
+    }
+}
+
+/// The Lessons cell: only registered while lessons wait, so it needs no
+/// "nothing to review" state.
+final class SwarmLessonsProvider: UsageProvider {
+    private let client: SwarmaClient
+
+    var kind: ProviderKind { .swarm }
+    var id: String { SwarmaCells.lessonsID }
+    var displayName: String { L10n.t("Lessons") }
+    var glyph: ProviderGlyph { .third }
+
+    init(client: SwarmaClient = .shared) { self.client = client }
+
+    func fetchSnapshot() async throws -> ProviderSnapshot {
+        do {
+            return SwarmaCells.lessonsSnapshot(pending: try await client.status().lessonsPending)
         } catch {
             let failure = error as? SwarmaClient.Failure ?? .unreachable
             return SwarmaCells.unavailable(id: id, name: displayName, glyph: glyph, detail: failure.message)
@@ -419,6 +458,7 @@ final class SwarmaDirectory {
         status.workers.map(\.name).sorted().map { SwarmAgentProvider(name: $0, client: client) }
             + (showsChats ? SwarmaCells.activeHarnesses(in: status).map { SwarmHarnessProvider(harness: $0, client: client) } : [])
             + status.scopes.map(\.scope).sorted().map { SwarmScopeProvider(scope: $0, client: client) }
+            + (status.lessonsPending > 0 ? [SwarmLessonsProvider(client: client)] : [])
     }
 
     /// Cancel a task from a cell's menu, then look again so the cell shows it.

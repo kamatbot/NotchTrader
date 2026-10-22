@@ -297,6 +297,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 .debounce(for: .milliseconds(600), scheduler: RunLoop.main)
                 .sink { [weak swarma] _ in swarma?.sync() }
                 .store(in: &cancellables)
+            fleet.onReviewLessons = { [weak self] in self?.reviewLessons() }
             fleet.onCancelSwarmTask = { [weak swarma] target in
                 Task { await swarma?.cancel(target) }
             }
@@ -1469,6 +1470,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @MainActor func openSettings() { settings?.show() }
+
+    private var lessonReview: LessonReviewWindowController?
+    /// The Lesson Review window, from the notch, the status item or the app menu.
+    @MainActor func reviewLessons() {
+        if lessonReview == nil {
+            lessonReview = LessonReviewWindowController(service: SwarmaClient.shared) { [weak self] in
+                self?.swarmaDirectory?.sync()
+            }
+        }
+        lessonReview?.show()
+    }
     @MainActor func openConnectPhone() {
         guard PhoneLink.isAvailable, let pairing = phoneLinkPairing, let registry = phoneLinkRegistry, let status = phoneLinkServerStatus else { return }
         if preferences?.phoneLinkEnabled == false { preferences?.phoneLinkEnabled = true }
