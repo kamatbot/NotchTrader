@@ -14,7 +14,15 @@ struct SwarmaStatus: Decodable, Equatable {
         struct Running: Decodable, Equatable {
             let taskId: String
             let scope: String?
-            private enum CodingKeys: String, CodingKey { case taskId = "task_id", scope }
+            /// The fields below are newer-service only; an older one omits them.
+            var kind: String? = nil
+            var objective: String? = nil
+            var requiredCapability: String? = nil
+            var startedAt: Date? = nil
+            private enum CodingKeys: String, CodingKey {
+                case taskId = "task_id", scope, kind, objective
+                case requiredCapability = "required_capability", startedAt = "started_at"
+            }
         }
         let name: String
         let lastSeenAt: Date?
@@ -60,8 +68,13 @@ struct SwarmaStatus: Decodable, Equatable {
         let requiredCapability: String?
         let updatedAt: Date?
         let worker: String?
+        /// Newer services only: who ran it, and what it left behind.
+        var provider: String? = nil
+        var branch: String? = nil
+        var changedFiles: Int? = nil
         private enum CodingKeys: String, CodingKey {
-            case id, scope, kind, status, version, objective, worker
+            case id, scope, kind, status, version, objective, worker, provider, branch
+            case changedFiles = "changed_files"
             case requiredCapability = "required_capability", updatedAt = "updated_at"
         }
     }

@@ -756,6 +756,244 @@ private struct ProviderTooltip: View {
     }
 }
 
+// MARK: - Swarmaa activity
+
+/// The hover card for an agent or project cell: what is running, the quota it
+/// draws on, where the next task goes and what landed. Every row is a fixed
+/// height so `NotchLayout.activityCardHeight` can size the card without
+/// measuring it.
+private struct SwarmaActivityTooltip: View {
+    let activity: SwarmaActivity
+    let glyph: ProviderGlyph
+    let now: Date
+    @Environment(\.tooltipSecondaryInk) private var secondaryInk
+
+    private static let lime = Color(nsColor: NSColor(hex: 0xD4FF3A))
+    private static let lilac = Color(nsColor: NSColor(hex: 0xD6C2FF))
+    private static let ceilingRed = Color(nsColor: NSColor(hex: 0xF0361A))
+    private static let chipInk = Color.black.opacity(0.85)
+
+    private static func accent(_ provider: String) -> Color {
+        switch provider.lowercased() {
+        case "claude":      return Color(nsColor: NSColor(hex: 0xFFE08A))
+        case "codex":       return Color(nsColor: NSColor(hex: 0x9CC8FF))
+        case "antigravity": return Color(nsColor: NSColor(hex: 0xFFB8D9))
+        default:            return lilac
+        }
+    }
+
+    private static func kindName(_ kind: String) -> String {
+        switch kind {
+        case "patch": return L10n.t("Edit")
+        case "review": return L10n.t("Review")
+        default: return L10n.t("Research")
+        }
+    }
+
+    private static func elapsed(since: Date?, now: Date) -> String {
+        guard let since else { return "" }
+        let minutes = Int(max(0, now.timeIntervalSince(since)) / 60)
+        return minutes < 60 ? "\(minutes)m" : "\(minutes / 60)h"
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            header
+            section(L10n.t("Running now"), top: NotchLayout.headerToBlock) { running }
+            if !activity.quotas.isEmpty {
+                section(L10n.t("Quota"), top: NotchLayout.blockSpacing) {
+                    VStack(alignment: .leading, spacing: NotchLayout.activityRowGap) {
+                        ForEach(activity.quotas, id: \.provider) { quotaRow($0) }
+                    }
+                }
+            }
+            if !activity.routes.isEmpty {
+                section(L10n.t("Next task"), top: NotchLayout.blockSpacing) { next }
+            }
+            if !activity.landed.isEmpty {
+                section(L10n.t("Landed"), top: NotchLayout.blockSpacing) {
+                    VStack(alignment: .leading, spacing: NotchLayout.activityRowGap) {
+                        ForEach(Array(activity.landed.enumerated()), id: \.offset) { landedRow($0.element) }
+                    }
+                }
+            }
+        }
+    }
+
+    private func section<C: View>(_ title: String, top: CGFloat, @ViewBuilder content: () -> C) -> some View {
+        VStack(alignment: .leading, spacing: NotchLayout.activityLabelGap) {
+            Text(title.uppercased())
+                .font(Typography.cardBody)
+                .tracking(Design.px(1.5))
+                .foregroundStyle(secondaryInk)
+                .frame(height: NotchLayout.cardBodyLineHeight, alignment: .leading)
+            content()
+        }
+        .padding(.top, top)
+    }
+
+    private var header: some View {
+        HStack(spacing: NotchLayout.headerGap) {
+            ProviderGlyphView(glyph: glyph, customIconFilename: nil)
+                .foregroundStyle(Palette.textPrimary)
+            Text(activity.title)
+                .font(Typography.cardTitle)
+                .foregroundStyle(Palette.textPrimary)
+                .lineLimit(1)
+            Spacer(minLength: Design.px(20))
+            pill
+        }
+        .frame(height: max(NotchLayout.glyphSize, NotchLayout.cardTitleLineHeight))
+    }
+
+    private var pill: some View {
+        let (text, color): (String, Color) = {
+            switch activity.pill {
+            case .live: return (L10n.t("live"), Palette.ample)
+            case .idle: return (L10n.t("idle"), secondaryInk)
+            case .offline: return (L10n.t("offline"), Palette.critical)
+            case .counts(let r, let q): return (L10n.t("\(r) running · \(q) queued"), r > 0 ? Palette.ample : secondaryInk)
+            }
+        }()
+        return Text(text)
+            .font(Typography.cardBody)
+            .foregroundStyle(color)
+            .lineLimit(1)
+            .padding(.horizontal, Design.px(14))
+            .padding(.vertical, Design.px(4))
+            .overlay(Capsule().stroke(color.opacity(0.6), lineWidth: Design.px(1.5)))
+    }
+
+    @ViewBuilder private var running: some View {
+        if activity.running.isEmpty {
+            Text(activity.isScope ? L10n.t("Nothing running") : L10n.t("Idle — next tasks route here"))
+                .font(Typography.cardBody)
+                .foregroundStyle(secondaryInk)
+                .frame(height: NotchLayout.activityRowHeight, alignment: .leading)
+        } else {
+            VStack(alignment: .leading, spacing: NotchLayout.activityRowGap) {
+                ForEach(activity.shownRunning, id: \.id) { runRow($0) }
+                if activity.hiddenRunning > 0 {
+                    Text(L10n.t("+\(activity.hiddenRunning) more"))
+                        .font(Typography.cardBody)
+                        .foregroundStyle(secondaryInk)
+                        .frame(height: NotchLayout.cardBodyLineHeight, alignment: .leading)
+                }
+            }
+        }
+    }
+
+    private func runRow(_ run: SwarmaActivity.Run) -> some View {
+        HStack(spacing: Design.px(12)) {
+            Rectangle().fill(Self.accent(run.provider))
+                .frame(width: Design.px(13), height: Design.px(13))
+                .rotationEffect(.degrees(45))
+                .padding(.horizontal, Design.px(3))
+            Text(SwarmaCells.vendorName(run.provider))
+                .foregroundStyle(Palette.textPrimary)
+                .lineLimit(1)
+                .fixedSize()
+            if let kind = run.kind {
+                Text(Self.kindName(kind).uppercased())
+                    .font(Typography.cardBody.weight(.semibold))
+                    .foregroundStyle(Self.chipInk)
+                    .padding(.horizontal, Design.px(10))
+                    .background(Capsule().fill(Self.lilac))
+                    .fixedSize()
+            }
+            Text(run.objective)
+                .foregroundStyle(Palette.textPrimary)
+                .lineLimit(1)
+                .truncationMode(.tail)
+            Spacer(minLength: 0)
+            Text(Self.elapsed(since: run.startedAt, now: now))
+                .foregroundStyle(secondaryInk)
+                .fixedSize()
+        }
+        .font(Typography.cardBody)
+        .frame(height: NotchLayout.activityRowHeight)
+    }
+
+    private func quotaRow(_ quota: SwarmaActivity.Quota) -> some View {
+        let used = min(max(quota.fiveHourPct ?? 0, 0), 100)
+        let over = used >= Double(quota.ceiling)
+        return HStack(spacing: Design.px(16)) {
+            Text(SwarmaCells.vendorName(quota.provider))
+                .foregroundStyle(Palette.textPrimary)
+                .lineLimit(1)
+                .frame(width: Design.px(165), alignment: .leading)
+            GeometryReader { proxy in
+                ZStack(alignment: .leading) {
+                    Capsule().fill(Palette.barTrack)
+                    Capsule().fill(over ? Palette.critical : Palette.ample)
+                        .frame(width: max(NotchLayout.barHeight, proxy.size.width * used / 100))
+                    Path { path in
+                        let x = proxy.size.width * CGFloat(min(max(quota.ceiling, 0), 100)) / 100
+                        path.move(to: CGPoint(x: x, y: -Design.px(3)))
+                        path.addLine(to: CGPoint(x: x, y: NotchLayout.barHeight + Design.px(3)))
+                    }
+                    .stroke(Self.ceilingRed, style: StrokeStyle(lineWidth: Design.px(2), dash: [Design.px(3), Design.px(2)]))
+                }
+                .frame(height: NotchLayout.barHeight)
+                .frame(maxHeight: .infinity)
+            }
+            Text(quota.fiveHourPct.map { "\(Int($0.rounded()))%" } ?? "–")
+                .foregroundStyle(over ? Palette.critical : Palette.textPrimary)
+                .frame(width: Design.px(64), alignment: .trailing)
+            Text(quota.weeklyPct.map { L10n.t("wk \(Int($0.rounded()))%") } ?? "")
+                .foregroundStyle(secondaryInk)
+                .frame(width: Design.px(100), alignment: .trailing)
+        }
+        .font(Typography.cardBody)
+        .lineLimit(1)
+        .frame(height: NotchLayout.activityRowHeight)
+    }
+
+    private var next: some View {
+        let line = activity.routes
+            .map { "\(Self.kindName($0.kind)) → \(SwarmaCells.vendorName($0.provider))" }
+            .joined(separator: " · ")
+        return VStack(alignment: .leading, spacing: NotchLayout.activityRowGap) {
+            Text(line)
+                .font(Typography.cardBody.weight(.semibold))
+                .foregroundStyle(Self.chipInk)
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+                .padding(.horizontal, Design.px(18))
+                .frame(height: NotchLayout.activityRowHeight + 2 * NotchLayout.activityPillPad)
+                .background(Capsule().fill(Self.lime))
+            if let reason = activity.routeReason {
+                Text(reason)
+                    .font(Typography.cardBody)
+                    .foregroundStyle(secondaryInk)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                    .frame(height: NotchLayout.cardBodyLineHeight, alignment: .leading)
+            }
+        }
+    }
+
+    private func landedRow(_ landed: SwarmaActivity.Landed) -> some View {
+        HStack(spacing: Design.px(16)) {
+            Text(landed.branch)
+                .font(.system(size: Design.fontSize(capPixels: 18), design: .monospaced))
+                .foregroundStyle(Palette.textPrimary)
+                .lineLimit(1)
+                .truncationMode(.middle)
+            Spacer(minLength: 0)
+            if let files = landed.files {
+                Text(files == 1 ? L10n.t("+1 file") : L10n.t("+\(files) files"))
+            }
+            if let at = landed.at {
+                Text(ElapsedCopy.ago(since: at, now: now))
+            }
+        }
+        .font(Typography.cardBody)
+        .foregroundStyle(secondaryInk)
+        .frame(height: NotchLayout.activityRowHeight)
+    }
+}
+
 private struct RuntimeModelDetails: View {
     let model: LocalRuntimeReading.Model
     let performance: LocalModelPerformance?
@@ -1213,7 +1451,8 @@ struct TooltipCard: View {
                 localLedgerRows: snapshot.localLedgerRowCount,
             compactRowCount: snapshot.compactRowCount,
             showsDeepSeekPricing: deepSeekPricingEnabled,
-            costRows: costRows
+            costRows: costRows,
+            swarmActivity: snapshot.swarmActivity
         )
     }
 
@@ -1225,8 +1464,12 @@ struct TooltipCard: View {
             // drifts while the card resizes around them.
             ZStack(alignment: .topLeading) {
                 VStack(alignment: .leading, spacing: 0) {
-                    ProviderTooltip(activityNote: localActivityNote, snapshot: snapshot, now: now, resetTimeFormat: resetTimeFormat,
-                                    showUsagePace: showUsagePace, showsRemaining: showsRemaining)
+                    if let swarmActivity = snapshot.swarmActivity {
+                        SwarmaActivityTooltip(activity: swarmActivity, glyph: snapshot.glyph, now: now)
+                    } else {
+                        ProviderTooltip(activityNote: localActivityNote, snapshot: snapshot, now: now, resetTimeFormat: resetTimeFormat,
+                                        showUsagePace: showUsagePace, showsRemaining: showsRemaining)
+                    }
                     if let resetCredits = snapshot.availableResetCredits(at: now) {
                         UsageResetCreditsSection(credits: resetCredits, now: now)
                     }
