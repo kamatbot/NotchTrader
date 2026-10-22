@@ -86,9 +86,18 @@ struct SwarmaStatus: Decodable, Equatable {
             let windows: [Usage.Window]
         }
         /// Nil when no vendor has room, or none has a live worker.
+        /// Who `by_kind` names for one kind of work, and why. Nil provider: nobody qualifies.
+        struct Choice: Equatable {
+            let provider: String?
+            let reason: String
+        }
         let recommended: String?
         let reason: String?
         let providers: [Provider]
+        /// Absent on a service that predates routing rules.
+        var policy: RoutingPolicy? = nil
+        var isDefault: Bool = false
+        var byKind: [String: Choice] = [:]
     }
 
     var workers: [Worker] = []
@@ -209,13 +218,26 @@ extension SwarmaStatus.Routing.Provider: Decodable {
 }
 
 extension SwarmaStatus.Routing: Decodable {
-    private enum CodingKeys: String, CodingKey { case recommended, reason, providers }
+    private enum CodingKeys: String, CodingKey { case recommended, reason, providers, policy, isDefault = "is_default", byKind = "by_kind" }
 
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         recommended = try c.decodeIfPresent(String.self, forKey: .recommended)
         reason = try c.decodeIfPresent(String.self, forKey: .reason)
         providers = c.list(.providers)
+        policy = (try? c.decodeIfPresent(RoutingPolicy.self, forKey: .policy)) ?? nil
+        isDefault = (try? c.decodeIfPresent(Bool.self, forKey: .isDefault)) ?? false
+        byKind = ((try? c.decodeIfPresent([String: Choice].self, forKey: .byKind)) ?? nil) ?? [:]
+    }
+}
+
+extension SwarmaStatus.Routing.Choice: Decodable {
+    private enum CodingKeys: String, CodingKey { case provider, reason }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        provider = (try? c.decodeIfPresent(String.self, forKey: .provider)) ?? nil
+        reason = (try? c.decodeIfPresent(String.self, forKey: .reason)) ?? ""
     }
 }
 
@@ -251,6 +273,8 @@ actor SwarmaClient {
         case http(Int)
         case unreachable
         case badResponse
+        /// `routing_set` refused the policy (400 invalid_policy); the service's own words.
+        case invalidPolicy(String)
 
         var message: String {
             switch self {
@@ -262,6 +286,7 @@ actor SwarmaClient {
             case .insecureURL:   return L10n.t("Swarmaa needs https off this Mac")
             case .http(let status): return L10n.t("Swarmaa error (HTTP \(status))")
             case .badResponse:   return L10n.t("Unexpected Swarmaa response")
+            case .invalidPolicy(let text): return text
             }
         }
     }
@@ -363,6 +388,18 @@ actor SwarmaClient {
         return try await call("session_get", body: body, as: SwarmaSessionDetail.Wrapper.self).session
     }
 
+    // MARK: - Routing
+
+    func routingGet() async throws -> RoutingGetResult {
+        try await call("routing_get", body: Data("{}".utf8), as: RoutingGetResult.self)
+    }
+
+    func routingSet(_ policy: RoutingPolicy) async throws -> RoutingSetResult {
+        let result = try await call("routing_set", body: policy.requestBody(), as: RoutingSetResult.self)
+        cached = nil   // by_kind changed
+        return result
+    }
+
     private func call<T: Decodable>(_ tool: String, body: Data, as: T.Type) async throws -> T {
         let data = try await fetch(tool: tool, body: body)
         do { return try Self.decoder.decode(Envelope<T>.self, from: data).result }
@@ -429,6 +466,7 @@ actor SwarmaClient {
             let code = ((text.flatMap { try? JSONSerialization.jsonObject(with: Data($0.utf8)) } as? [String: Any])?["error"] as? [String: Any])?["code"] as? String
             if code?.contains("forbidden") == true || code == "permission_denied" { throw Failure.forbidden }
             if code == "unauthorized" { throw Failure.unauthorized }
+            if code == "invalid_policy" { throw Failure.invalidPolicy(Self.invalidPolicyMessage(text.map { Data($0.utf8) })) }
             throw Failure.badResponse
         }
         let value: Any
@@ -477,6 +515,17 @@ actor SwarmaClient {
         return url
     }
 
+    nonisolated static func errorCode(_ data: Data) -> String? {
+        let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+        return (root?["error"] as? [String: Any])?["code"] as? String ?? root?["error"] as? String
+    }
+
+    nonisolated static func invalidPolicyMessage(_ data: Data?) -> String {
+        let root = data.flatMap { try? JSONSerialization.jsonObject(with: $0) as? [String: Any] }
+        let message = ((root?["error"] as? [String: Any])?["message"] as? String) ?? root?["message"] as? String
+        return message ?? L10n.t("The service refused this routing policy")
+    }
+
     private static func send(_ request: URLRequest, via transport: Transport) async throws -> Data {
         let data: Data
         let response: URLResponse
@@ -490,6 +539,9 @@ actor SwarmaClient {
         case 200..<300: return data
         case 401:       throw Failure.unauthorized
         case 403:       throw Failure.forbidden
+        case 400:
+            if errorCode(data) == "invalid_policy" { throw Failure.invalidPolicy(invalidPolicyMessage(data)) }
+            throw Failure.http(400)
         default:        throw Failure.http(http.statusCode)
         }
     }
