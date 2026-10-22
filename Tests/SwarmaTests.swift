@@ -377,8 +377,8 @@ final class SwarmaTests: XCTestCase {
         let client = SwarmaClient(serviceURL: { "http://127.0.0.1:1" }, tokenPath: { "" },
                                   transport: { _ in throw URLError(.cannotConnectToHost) })
         let providers = SwarmaDirectory.providers(for: try status(), client: client)
-        XCTAssertEqual(providers.map(\.id), ["swarm:agent:worker-claude", "swarm:agent:worker-codex",
-                                             "swarm:scope:project:demo"])
+        XCTAssertEqual(providers.map(\.id), ["swarm:agent:worker-claude", "swarm:scope:project:demo"],
+                       "the idle worker-codex gets no cell")
         XCTAssertTrue(providers.allSatisfy { $0.kind == .swarm })
     }
 

@@ -464,7 +464,8 @@ final class SwarmaDirectory {
 
     nonisolated static func providers(for status: SwarmaStatus, client: SwarmaClient,
                                       showsChats: Bool = true) -> [UsageProvider] {
-        status.workers.map(\.name).sorted().map { SwarmAgentProvider(name: $0, client: client) }
+        // A worker gets a cell only while it runs a task: idle and offline workers are noise in the notch.
+        status.workers.filter { !$0.running.isEmpty }.map(\.name).sorted().map { SwarmAgentProvider(name: $0, client: client) }
             + (showsChats ? SwarmaCells.activeHarnesses(in: status).map { SwarmHarnessProvider(harness: $0, client: client) } : [])
             // Only active swarms: a project gets a cell while it has queued, running or blocked work.
             // Finished work stays visible on the worker cells' activity cards.
