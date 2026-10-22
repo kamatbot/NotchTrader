@@ -409,13 +409,6 @@ final class SwarmaTests: XCTestCase {
 
     // MARK: Preferences
 
-    func testTickersHideOnlyWhileSwarmaIsOnAndReplacing() {
-        XCTAssertTrue(Preferences.showsTickers(swarmaEnabled: false, replacesTickers: true))
-        XCTAssertTrue(Preferences.showsTickers(swarmaEnabled: false, replacesTickers: false))
-        XCTAssertTrue(Preferences.showsTickers(swarmaEnabled: true, replacesTickers: false))
-        XCTAssertFalse(Preferences.showsTickers(swarmaEnabled: true, replacesTickers: true))
-    }
-
     func testSwarmaDefaultsFollowTheTokenFile() throws {
         let name = "SwarmaTests.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: name)!
@@ -423,7 +416,6 @@ final class SwarmaTests: XCTestCase {
 
         XCTAssertEqual(Preferences.storedSwarmaServiceURL(defaults: defaults), "http://127.0.0.1:8787")
         XCTAssertEqual(Preferences.storedSwarmaTokenPath(defaults: defaults), "~/Projects/swarma/.local/notchtrader.json")
-        XCTAssertTrue(Preferences.storedSwarmaReplacesTickers(defaults: defaults))
 
         defaults.set("/nonexistent/swarma.json", forKey: "swarmaTokenPath")
         XCTAssertFalse(Preferences.storedSwarmaEnabled(defaults: defaults), "off where there is no token file")

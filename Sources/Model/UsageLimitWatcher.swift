@@ -6,7 +6,7 @@ import Foundation
 final class UsageLimitWatcher {
     private struct TrackedLimit {
         /// False until this window has been read once. The first reading of a
-        /// window only records: a limit already spent when Codenotch starts is
+        /// window only records: a limit already spent when Swarmaa starts is
         /// not news. Kept per window rather than per provider because the
         /// windows do not arrive together: the store's first publication can
         /// be a placeholder with no window at all, and the weekly window can
@@ -55,7 +55,7 @@ final class UsageLimitWatcher {
     }
 
     private func observe(_ snapshot: ProviderSnapshot) {
-        guard snapshot.kind != .stockTicker, snapshot.kind != .swarm else { return }
+        guard snapshot.kind != .swarm else { return }
         // Same rule as the reset watcher: an archived (stale) reading is not a
         // baseline, so the first live reading after one only records.
         guard !snapshot.status.isStale else {

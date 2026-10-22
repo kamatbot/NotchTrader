@@ -123,11 +123,7 @@ final class CursorGeometry {
         if let cached = tooltipRects[index] { return cached }
         guard model.snapshots.indices.contains(index) else { return nil }
         let snapshot = model.snapshots[index]
-        let cardHeight: CGFloat
-        if snapshot.kind == .stockTicker {
-            cardHeight = NotchLayout.opsOddsCardHeight
-        } else {
-            cardHeight = NotchLayout.cardHeight(
+        let cardHeight = NotchLayout.cardHeight(
                 windowCount: snapshot.windows.count,
                 groupCount: snapshot.windowGroupCount,
                 moneyWindowCount: snapshot.windows.filter { $0.money != nil }.count,
@@ -145,11 +141,9 @@ final class CursorGeometry {
                 showsLocalPerformance: snapshot.showsLocalPerformance,
                 localLedgerRows: snapshot.localLedgerRowCount,
                 compactRowCount: snapshot.compactRowCount,
-                showsDeepSeekPricing: model.deepSeekPricingEnabled,
-                isStockTicker: snapshot.kind == .stockTicker
+                showsDeepSeekPricing: model.deepSeekPricingEnabled
             )
-        }
-        let width = snapshot.kind == .stockTicker ? NotchLayout.opsOddsCardWidth : NotchLayout.cardWidth
+        let width = NotchLayout.cardWidth
         // Across the stack the region is the card, its tail, and the gap the
         // pointer has to cross. Along it, the card's own extent.
         let cardAcross = model.edge.isVertical ? width : cardHeight

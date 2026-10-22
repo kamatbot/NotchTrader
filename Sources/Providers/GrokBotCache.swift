@@ -8,7 +8,7 @@ import Foundation
 /// account. The blob's filename is the lower-case base32 of its key with no
 /// padding, so the weekly cache for an account slot looks like
 /// `sand.client.slice.account.grok|user_….weekly-usage.cache` spelled in
-/// base32. Codenotch only reads it — no credential is involved, and nothing
+/// base32. Swarmaa only reads it — no credential is involved, and nothing
 /// here can sign in or refresh: while Grok Bot runs it keeps the cache fresh
 /// itself, and when it does not the reading ages in place.
 struct GrokBotReading {

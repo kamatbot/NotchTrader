@@ -660,19 +660,12 @@ struct NotchRootView: View {
     static let gripReturn = Animation.easeIn(duration: 0.2)
 
     private func tooltipLength(_ snapshot: ProviderSnapshot) -> CGFloat {
-        model.edge.isVertical ? cardAcross(snapshot) : cardWidth(snapshot)
-    }
-
-    private func cardWidth(_ snapshot: ProviderSnapshot) -> CGFloat {
-        snapshot.kind == .stockTicker ? NotchLayout.opsOddsCardWidth : NotchLayout.cardWidth
+        model.edge.isVertical ? cardAcross(snapshot) : NotchLayout.cardWidth
     }
 
     /// The card's extent across the stack (its height on a horizontal edge).
     private func cardAcross(_ snapshot: ProviderSnapshot) -> CGFloat {
-        if snapshot.kind == .stockTicker {
-            return NotchLayout.opsOddsCardHeight
-        }
-        return NotchLayout.cardHeight(
+        NotchLayout.cardHeight(
             windowCount: snapshot.windows.count,
             groupCount: snapshot.windowGroupCount,
             moneyWindowCount: snapshot.windows.filter { $0.money != nil }.count,
@@ -691,8 +684,7 @@ struct NotchRootView: View {
             localLedgerRows: snapshot.localLedgerRowCount,
             compactRowCount: snapshot.compactRowCount,
             showsDeepSeekPricing: model.deepSeekPricingEnabled,
-            costRows: model.costRows(for: snapshot),
-            isStockTicker: snapshot.kind == .stockTicker)
+            costRows: model.costRows(for: snapshot))
     }
 
     private func tooltipTailOffset(index: Int, snapshot: ProviderSnapshot) -> CGFloat {
@@ -705,7 +697,7 @@ struct NotchRootView: View {
     private func tooltipCentre(
         _ place: NotchPlacement, index: Int, snapshot: ProviderSnapshot
     ) -> CGPoint {
-        let card = model.edge.isVertical ? cardWidth(snapshot) : cardAcross(snapshot)
+        let card = model.edge.isVertical ? NotchLayout.cardWidth : cardAcross(snapshot)
         // The ring it points at has moved with the notch, so the tail follows
         // it — but the card beyond the tail is drawn at its own size, and
         // `tooltipInset` already ends where the drawn notch does.

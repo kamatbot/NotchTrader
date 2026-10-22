@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// Settings pane for Swarma, the local multi-agent network whose workers and
-/// project scopes get cells in the notch the way stock tickers do.
+/// project scopes get cells in the notch.
 struct SwarmaSettingsView: View {
     @ObservedObject var preferences: Preferences
 
@@ -21,9 +21,6 @@ struct SwarmaSettingsView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
-
-                Toggle("Show Swarmaa instead of stock tickers", isOn: $preferences.swarmaReplacesTickers)
-                    .disabled(!preferences.swarmaEnabled)
             }
 
             Section("Connection") {

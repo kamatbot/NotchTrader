@@ -11,13 +11,6 @@ final class UsageStore: ObservableObject {
     }
     /// Settings and every display share the same ordered, visible model cells.
     @Published private(set) var notchSnapshots: [ProviderSnapshot] = []
-    @Published var isMarketsOnActive: Bool = false {
-        didSet {
-            guard isMarketsOnActive != oldValue else { return }
-            updateNotchSnapshots()
-            updateTickerTimer()
-        }
-    }
     /// Providers with a fetch in flight, so the cell can show it happening.
     @Published private(set) var refreshing: Set<String> = []
     /// Providers whose last fetch was refused by macOS, cleared as soon as one
@@ -79,22 +72,8 @@ final class UsageStore: ObservableObject {
         refreshNow()
     }
 
-    func registerTickerProviders(_ tickerProviders: [UsageProvider]) {
-        let tickerIDs = Set(tickerProviders.map(\.id))
-        disconnected.subtract(tickerIDs)
-        providers.removeAll { $0.id.hasPrefix("ticker:") }
-        providers.append(contentsOf: tickerProviders)
-        snapshots.removeAll { $0.id.hasPrefix("ticker:") && !tickerIDs.contains($0.id) }
-        lastGood = lastGood.filter { !$0.key.hasPrefix("ticker:") || tickerIDs.contains($0.key) }
-        for provider in tickerProviders {
-            publish(Self.placeholder(provider))
-        }
-        updateNotchSnapshots()
-        refreshTickers(freshness: .live)
-    }
-
     /// Swarma cells come and go with the service's own worker and scope lists,
-    /// so unlike tickers an unchanged cell keeps its reading instead of being
+    /// so an unchanged cell keeps its reading instead of being
     /// reset to a placeholder every time a new one joins.
     func registerSwarmProviders(_ swarm: [UsageProvider]) {
         let swarmIDs = Set(swarm.map(\.id))
@@ -236,7 +215,6 @@ final class UsageStore: ObservableObject {
     private var lastGood: [String: (snapshot: ProviderSnapshot, fetchedAt: Date)] = [:]
     private var timer: Timer?
     private var localTimer: Timer?
-    private var tickerTimer: Timer?
     private var fetchTasks: [String: Task<Void, Never>] = [:]
     private var generations: [String: Int] = [:]
     private var refreshTask: Task<Void, Never>?
@@ -334,34 +312,8 @@ final class UsageStore: ObservableObject {
 
     private func updateNotchSnapshots() {
         let cells = ProviderOrder.cells(from: snapshots, keeping: notchSnapshots)
-        var ordered = ProviderOrder.arrange(cells, by: order, id: \.id)
+        notchSnapshots = ProviderOrder.arrange(cells, by: order, id: \.id)
             .filter { !disconnected.contains($0.id) }
-        if isMarketsOnActive {
-            let tickerCells = ordered.filter { $0.kind == .stockTicker }
-            if !tickerCells.isEmpty {
-                ordered = tickerCells
-            }
-        }
-        notchSnapshots = ordered
-    }
-
-    func refreshTickers(freshness: UsageFreshness = .live) {
-        for provider in providers where provider.kind == .stockTicker && !disconnected.contains(provider.id) {
-            _ = beginRefresh(provider, freshness: freshness)
-        }
-    }
-
-    func updateTickerTimer() {
-        tickerTimer?.invalidate()
-        tickerTimer = nil
-        let interval: TimeInterval = isMarketsOnActive ? 5.0 : 15.0
-        let timer = Timer(timeInterval: interval, repeats: true) { [weak self] _ in
-            MainActor.assumeIsolated {
-                self?.refreshTickers(freshness: .live)
-            }
-        }
-        RunLoop.main.add(timer, forMode: .common)
-        self.tickerTimer = timer
     }
 
     /// Model discovery does not need to re-read any cloud account's credential.
@@ -394,7 +346,6 @@ final class UsageStore: ObservableObject {
 
     func start() {
         refreshNow()
-        updateTickerTimer()
 
         let timer = Timer(timeInterval: refreshInterval, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated { self?.tick() }
@@ -435,8 +386,6 @@ final class UsageStore: ObservableObject {
         timer = nil
         localTimer?.invalidate()
         localTimer = nil
-        tickerTimer?.invalidate()
-        tickerTimer = nil
         refreshTask?.cancel()
         for id in Array(fetchTasks.keys) { cancelRefresh(providerID: id) }
         deadlineTask?.cancel()
@@ -840,7 +789,7 @@ final class UsageStore: ObservableObject {
     /// something you do while already signed in, so the shortcut `signIn` takes
     /// when a credential exists is exactly wrong here.
     ///
-    /// Codenotch cannot switch the account itself. The credential belongs to
+    /// Swarmaa cannot switch the account itself. The credential belongs to
     /// Claude Code, Cursor or Codex, and the most this can honestly do is open
     /// the thing that owns it.
     @discardableResult

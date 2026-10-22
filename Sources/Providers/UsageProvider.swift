@@ -3,7 +3,6 @@ import Foundation
 enum ProviderKind: Equatable {
     case usage
     case localRuntime
-    case stockTicker
     /// A Swarma agent or project scope: cells whose set comes from the service.
     case swarm
 }
@@ -72,7 +71,7 @@ protocol UsageProvider {
     ///
     /// For a borrowed credential there is nothing here to discard — the session
     /// belongs to Claude Code or Cursor, and ending it is their business, not
-    /// ours. For a session Codenotch created itself (`WebSessionProvider`) this
+    /// ours. For a session Swarmaa created itself (`WebSessionProvider`) this
     /// is a real logout. A requirement, not an extension member, for the reason
     /// spelled out above `account()`.
     func signOut() async

@@ -650,7 +650,7 @@ final class ClaudeOAuthProviderTests: XCTestCase {
         XCTAssertEqual(next.usedFraction, 0.30, "the cache was no longer being read")
     }
 
-    /// Claude Desktop is signed into one account; Codenotch draws a ring per
+    /// Claude Desktop is signed into one account; Swarmaa draws a ring per
     /// Claude Code profile. A profile whose organization does not match the
     /// cached URL gets nothing from Desktop — the alternative is the personal
     /// account's session percentage on the work ring.

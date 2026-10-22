@@ -6,7 +6,7 @@ import os
 ///
 /// Google refuses us: `retrieveUserQuotaSummary` on `cloudcode-pa` answers 403
 /// "You do not have a valid license of this product" for a personal account,
-/// because the API judges *which client* is asking and Codenotch cannot
+/// because the API judges *which client* is asking and Swarmaa cannot
 /// honestly claim to be Antigravity. Antigravity's window has the same problem
 /// and solves it the same way — it never calls Google for this either. It calls
 /// the language server running on this machine, which already holds the
@@ -255,7 +255,7 @@ enum AntigravityBridge {
         }
     }
 
-    /// A server Codenotch owns, or nil until one is needed.
+    /// A server Swarmaa owns, or nil until one is needed.
     static let owned = Owned()
 
     /// The same flags the IDE passes its own server, minus everything that wires

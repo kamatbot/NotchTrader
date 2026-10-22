@@ -89,8 +89,8 @@ verify-deps:
 run: build
 	@APP=$$(xcodebuild -project $(PROJECT) -scheme $(SCHEME) -destination '$(DEST)' \
 		-configuration Debug -showBuildSettings 2>/dev/null \
-		| awk -F' = ' '/ BUILT_PRODUCTS_DIR/ {print $$2; exit}')/Codenotch.app; \
-	pkill -x Codenotch 2>/dev/null; sleep 0.5; \
+		| awk -F' = ' '/ BUILT_PRODUCTS_DIR/ {print $$2; exit}')/$(APP_NAME).app; \
+	pkill -x $(APP_NAME) 2>/dev/null; sleep 0.5; \
 	open "$$APP"
 
 # Build a Release .app, sign it with whatever identity is available (Developer
@@ -106,10 +106,10 @@ install: gen
 		-configuration Release $(DEV_SIGN) build
 	@APP=$$(xcodebuild -project $(PROJECT) -scheme $(SCHEME) -destination '$(DEST)' \
 		-configuration Release -showBuildSettings 2>/dev/null \
-		| awk -F' = ' '/ BUILT_PRODUCTS_DIR/ {print $$2; exit}')/Codenotch.app; \
-	pkill -x Codenotch || true; \
+		| awk -F' = ' '/ BUILT_PRODUCTS_DIR/ {print $$2; exit}')/$(APP_NAME).app; \
+	pkill -x $(APP_NAME) || true; \
 	cp -R "$$APP" /Applications/; \
-	open /Applications/Codenotch.app
+	open /Applications/$(APP_NAME).app
 
 clean:
 	rm -rf build DerivedData $(PROJECT)
@@ -127,7 +127,7 @@ clean:
 # → App-Specific Passwords. Not your Apple ID password.
 
 RELEASE_DIR := build/release
-APP_NAME    := Codenotch
+APP_NAME    := Swarmaa
 # The label of the stored notarytool credential in the login keychain, not
 # anything to do with the app's name — it was created before the rename and
 # renaming the variable is what broke `make release` after it. Recreating it
@@ -144,7 +144,7 @@ archive: gen
 	rm -rf $(RELEASE_DIR)
 	mkdir -p $(RELEASE_DIR)
 	@# Spotlight indexes build output as installed applications, so every
-	@# release leaves extra "Codenotch" entries in app search next to the
+	@# release leaves extra "Swarmaa" entries in app search next to the
 	@# real one in /Applications. This stops the whole tree being indexed.
 	@touch build/.metadata_never_index
 	xcodebuild -project $(PROJECT) -scheme $(SCHEME) -destination '$(DEST)' \
@@ -183,7 +183,7 @@ dmg: archive
 		$(DMG) $(RELEASE_DIR)/stage
 	codesign --force --sign "Developer ID Application" --timestamp $(DMG)
 	@# The app is inside the dmg now. Leaving the loose copies around is how
-	@# three spare "Codenotch" entries end up in Spotlight; everything
+	@# three spare "Swarmaa" entries end up in Spotlight; everything
 	@# downstream (notarize, verify, appcast) works from the dmg alone.
 	rm -rf $(RELEASE_DIR)/stage $(RELEASE_DIR)/$(APP_NAME).app
 
@@ -299,7 +299,7 @@ build-ci: gen
 	rm -rf $(CI_DIR)
 	mkdir -p $(CI_DIR)
 	@# Same reason as `archive`: without this, every build leaves spare
-	@# "Codenotch" entries in Spotlight next to the installed app.
+	@# "Swarmaa" entries in Spotlight next to the installed app.
 	@touch build/.metadata_never_index
 	@# The one entitlement an ad-hoc build cannot do without. The hardened
 	@# runtime turns on library validation, which will only load a library
@@ -313,7 +313,7 @@ build-ci: gen
 	@#   ... not valid for use in process: mapping process and mapped file
 	@#   (non-platform) have different Team IDs
 	@#
-	@# which macOS reports to the user as "Codenotch cannot be opened because
+	@# which macOS reports to the user as "Swarmaa cannot be opened because
 	@# of a problem". A Developer ID build has no such trouble: one identity
 	@# signs the app and re-signs the framework, so the Team IDs do match, and
 	@# this is the single difference that has to be relaxed to make up for not

@@ -43,7 +43,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// that rate-limits, actively harmful.
     private var isRunningTests: Bool { Runtime.isUnderTest }
 
-    /// Quit any copy of Codenotch that was already running.
+    /// Quit any copy of Swarmaa that was already running.
     ///
     /// Every notch is a window on the screen edge, so a second copy is not a
     /// harmless duplicate the way a second text editor is: it draws a second
@@ -136,7 +136,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             fleet.setLocalActivities(Fixtures.localActivities())
         } else {
             // DeepSeek's Platform usage page is a browser-session provider:
-            // login is explicit, stays in Codenotch's own WKWebView store, and
+            // login is explicit, stays in Swarmaa's own WKWebView store, and
             // the page-local requests are refreshed only after that login.
             let deepSeek = WebSessionProvider(site: Sites.deepSeek)
             // QianwenAI's Token Plan is the same kind of provider: no usage API
@@ -185,18 +185,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             let remoteProviders: [UsageProvider] = preferences.remoteHosts
                 .filter { $0.isEnabled && $0.isConfigured }
                 .map { $0.makeProvider() }
-            let tickerProviders: [UsageProvider] = Preferences.showsTickers(
-                swarmaEnabled: preferences.swarmaEnabled,
-                replacesTickers: preferences.swarmaReplacesTickers
-            ) ? preferences.configuredTickers.map { ticker in
-                StockTickerProvider(
-                    ticker: ticker,
-                    getDeviceId: { [weak preferences] in preferences?.opsOddsDeviceId },
-                    getBaseURL: { [weak preferences] in preferences?.opsOddsBaseURL ?? "https://www.opsodds.com" }
-                )
-            } : []
-            let allProviders: [UsageProvider] = tickerProviders
-                + claudeProviders
+            let allProviders: [UsageProvider] = claudeProviders
                 + [CursorLocalProvider()]
                 + codexProfiles.map { CodexLocalProvider(profile: $0) }
                 + antigravityProfiles.map { AntigravityProvider(profile: $0) }
@@ -258,31 +247,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     store?.registerRemoteProviders(providers)
                 }
                 .store(in: &cancellables)
-            // Swarma hides the tickers while it is on and asked to; the values
-            // come from the publishers, which fire before the property changes.
-            preferences.$configuredTickers
-                .combineLatest(preferences.$swarmaEnabled, preferences.$swarmaReplacesTickers)
-                .map { tickers, swarma, replaces in
-                    Preferences.showsTickers(swarmaEnabled: swarma, replacesTickers: replaces) ? tickers : []
-                }
-                .removeDuplicates()
-                .receive(on: RunLoop.main)
-                .sink { [weak store, weak preferences] tickers in
-                    guard let preferences, let store else { return }
-                    for ticker in tickers {
-                        preferences.setConnected(true, for: "ticker:\(ticker)")
-                    }
-                    let providers: [UsageProvider] = tickers.map { ticker in
-                        StockTickerProvider(
-                            ticker: ticker,
-                            getDeviceId: { [weak preferences] in preferences?.opsOddsDeviceId },
-                            getBaseURL: { [weak preferences] in preferences?.opsOddsBaseURL ?? "https://www.opsodds.com" }
-                        )
-                    }
-                    store.registerTickerProviders(providers)
-                }
-                .store(in: &cancellables)
-
             let swarma = SwarmaDirectory(store: store)
             self.swarmaDirectory = swarma
             preferences.$swarmaEnabled
@@ -308,27 +272,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 Task { await swarma?.cancel(target) }
             }
 
-            let updateMarketsOn = { [weak store, weak preferences] in
-                guard let preferences, let store else { return }
-                let active = preferences.isMarketsOnActive
-                DispatchQueue.main.async {
-                    if store.isMarketsOnActive != active {
-                        store.isMarketsOnActive = active
-                    }
-                }
-            }
-            updateMarketsOn()
-
-            preferences.$marketsOnEnabled
-                .combineLatest(preferences.$marketsOnForceActive)
-                .receive(on: RunLoop.main)
-                .sink { _ in updateMarketsOn() }
-                .store(in: &cancellables)
-
-            Timer.publish(every: 30, on: .main, in: .common)
-                .autoconnect()
-                .sink { _ in updateMarketsOn() }
-                .store(in: &cancellables)
             Costs.attach(to: store)
             deepSeek.onAuthenticated = { [weak store] in
                 store?.providerAuthenticationChanged(providerID: "deepseek")
@@ -976,7 +919,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 .sink { [weak statusItem] snapshots, paced in
                     let snapshots = DailyPace.apply(to: snapshots, enabled: paced)
                     statusItem?.snapshots = snapshots
-                    let usageSnapshots = snapshots.filter { $0.kind != .stockTicker && $0.kind != .swarm }
+                    let usageSnapshots = snapshots.filter { $0.kind != .swarm }
                     notifier.observe(usageSnapshots)
                     resetWatcher.observe(usageSnapshots)
                     limitWatcher.observe(usageSnapshots)
@@ -1366,10 +1309,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             return
         }
         if preferences.sessionEndSound { SessionChime.play(preferences.sessionEndSoundName) }
-        var notice = UsageResetEvent(providerID: "codenotch", providerName: "Codenotch",
+        var notice = UsageResetEvent(providerID: "codenotch", providerName: "Swarmaa",
                                      windowLabel: "", glyph: .claude,
                                      previousFraction: 0, currentFraction: 0, resetsAt: nil)
-        notice.noticeTitle = L10n.t("Codenotch test")
+        notice.noticeTitle = L10n.t("Swarmaa test")
         notice.noticeSubtitle = L10n.t("This is what one looks like.")
         notice.noticeStatus = ""
         fleet.showResetAlert(notice, duration: 5.0)

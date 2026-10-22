@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Buttons in Settings, drawn to match the panel rather than as stock macOS
+/// Buttons in Settings, drawn to match the panel rather than as default macOS
 /// push buttons, and every one of them answering the pointer: brighter on
 /// hover, a touch smaller and darker while pressed, dimmed when it can't be
 /// used. Set once over each pane (see `SettingsView.pane(for:)`), so a button

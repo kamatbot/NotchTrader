@@ -1194,10 +1194,7 @@ struct TooltipCard: View {
     /// The same figure the hover region uses, so what is drawn and what is
     /// reachable can never drift apart.
     private var height: CGFloat {
-        if snapshot.kind == .stockTicker {
-            return NotchLayout.opsOddsCardHeight
-        }
-        return NotchLayout.cardHeight(
+        NotchLayout.cardHeight(
             windowCount: snapshot.windows.count,
             groupCount: snapshot.windowGroupCount,
             moneyWindowCount: snapshot.windows.filter { $0.money != nil }.count,
@@ -1220,54 +1217,44 @@ struct TooltipCard: View {
         )
     }
 
-    private var cardWidth: CGFloat {
-        snapshot.kind == .stockTicker ? NotchLayout.opsOddsCardWidth : NotchLayout.cardWidth
-    }
-
     var body: some View {
-        TooltipShell(height: height, width: cardWidth, direction: direction, tailOffset: tailOffset) {
+        TooltipShell(height: height, width: NotchLayout.cardWidth, direction: direction, tailOffset: tailOffset) {
             // Stacked, not replaced in place: during a swap both sets of rows
             // exist for a moment, and in a ZStack they overlap and dissolve
             // instead of shoving each other around. Top-aligned so neither
             // drifts while the card resizes around them.
             ZStack(alignment: .topLeading) {
-                if snapshot.kind == .stockTicker {
-                    OpsOddsCard(snapshot: snapshot, now: now)
-                        .id(snapshot.id)
-                        .transition(.opacity.animation(NotchMotion.crossfade))
-                } else {
-                    VStack(alignment: .leading, spacing: 0) {
-                        ProviderTooltip(activityNote: localActivityNote, snapshot: snapshot, now: now, resetTimeFormat: resetTimeFormat,
-                                        showUsagePace: showUsagePace, showsRemaining: showsRemaining)
-                        if let resetCredits = snapshot.availableResetCredits(at: now) {
-                            UsageResetCreditsSection(credits: resetCredits, now: now)
-                        }
-                        if let tokenUsage = snapshot.tokenUsage {
-                            CodexUsageSection(usage: tokenUsage, now: now)
-                        } else if let history = snapshot.customUsageHistory {
-                            CodexUsageSection(usage: history.codexUsage, now: now)
-                        }
-                        if let usageDetail = snapshot.usageDetail, usageDetail.hasUsage {
-                            DeepSeekUsageDetail(detail: usageDetail, now: now,
-                                                schedule: deepSeekPricingSchedule,
-                                                showsPricing: deepSeekPricingEnabled)
-                        }
-                        if let activity, snapshot.localModel == nil {
-                            SessionList(summary: activity, now: now, cap: sessionCap,
-                                        onFocus: onFocusSession)
-                        }
-                        if costRows > 0, let model = CostModels.model(for: snapshot.id) {
-                            CostSection(model: model, rows: costRows)
-                        }
+                VStack(alignment: .leading, spacing: 0) {
+                    ProviderTooltip(activityNote: localActivityNote, snapshot: snapshot, now: now, resetTimeFormat: resetTimeFormat,
+                                    showUsagePace: showUsagePace, showsRemaining: showsRemaining)
+                    if let resetCredits = snapshot.availableResetCredits(at: now) {
+                        UsageResetCreditsSection(credits: resetCredits, now: now)
                     }
-                    // An identity, so one provider's rows are never interpolated
-                    // into another's — that is what slid text through positions
-                    // belonging to neither layout. A crossfade rather than an
-                    // instant swap, so the change is part of the movement instead
-                    // of a cut in the middle of it.
-                    .id(snapshot.id)
-                    .transition(.opacity.animation(NotchMotion.crossfade))
+                    if let tokenUsage = snapshot.tokenUsage {
+                        CodexUsageSection(usage: tokenUsage, now: now)
+                    } else if let history = snapshot.customUsageHistory {
+                        CodexUsageSection(usage: history.codexUsage, now: now)
+                    }
+                    if let usageDetail = snapshot.usageDetail, usageDetail.hasUsage {
+                        DeepSeekUsageDetail(detail: usageDetail, now: now,
+                                            schedule: deepSeekPricingSchedule,
+                                            showsPricing: deepSeekPricingEnabled)
+                    }
+                    if let activity, snapshot.localModel == nil {
+                        SessionList(summary: activity, now: now, cap: sessionCap,
+                                    onFocus: onFocusSession)
+                    }
+                    if costRows > 0, let model = CostModels.model(for: snapshot.id) {
+                        CostSection(model: model, rows: costRows)
+                    }
                 }
+                // An identity, so one provider's rows are never interpolated
+                // into another's — that is what slid text through positions
+                // belonging to neither layout. A crossfade rather than an
+                // instant swap, so the change is part of the movement instead
+                // of a cut in the middle of it.
+                .id(snapshot.id)
+                .transition(.opacity.animation(NotchMotion.crossfade))
             }
             .frame(maxWidth: .infinity, alignment: .topLeading)
         }

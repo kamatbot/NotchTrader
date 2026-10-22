@@ -26,8 +26,7 @@ enum SwarmaCells {
     }
 
     /// The agent's vendor mark, reusing the marks the app already draws for
-    /// those vendors. `.third` is what an unknown vendor gets, as it is for
-    /// stock tickers.
+    /// those vendors. `.third` is what an unknown vendor gets.
     static func glyph(forProvider provider: String?) -> ProviderGlyph {
         switch provider?.lowercased() {
         case "claude":                 return .claude
@@ -358,8 +357,7 @@ final class SwarmaRoutingWatcher {
     }
 }
 
-/// Decides which Swarma cells exist, the way the configured list does for
-/// tickers — except that the list is whatever the service reports, so it is
+/// Decides which Swarma cells exist, from what the service reports, so it is
 /// asked on a timer and the store is told when the set changes.
 @MainActor
 final class SwarmaDirectory {
