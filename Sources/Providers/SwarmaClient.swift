@@ -97,11 +97,14 @@ struct SwarmaStatus: Decodable, Equatable {
     var recent: [TaskRow] = []
     var sessions: [Session] = []
     var routing: Routing?
+    /// Candidate lessons waiting for review. Newer services only; an older one sends none.
+    var lessonsPending: Int = 0
     var generatedAt: Date?
 
     init(workers: [Worker] = [], usage: [Usage] = [], scopes: [Scope] = [],
          recent: [TaskRow] = [], sessions: [Session] = [], routing: Routing? = nil,
-         generatedAt: Date? = nil) {
+         lessonsPending: Int = 0, generatedAt: Date? = nil) {
+        self.lessonsPending = lessonsPending
         self.workers = workers
         self.usage = usage
         self.scopes = scopes
@@ -120,7 +123,7 @@ private extension KeyedDecodingContainer {
 }
 
 extension SwarmaStatus {
-    private enum CodingKeys: String, CodingKey { case workers, usage, scopes, recent, sessions, routing, generatedAt = "generated_at" }
+    private enum CodingKeys: String, CodingKey { case workers, usage, scopes, recent, sessions, routing, generatedAt = "generated_at", lessonsPending = "lessons_pending" }
 
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
@@ -131,6 +134,7 @@ extension SwarmaStatus {
         sessions = c.list(.sessions)
         routing = ((try? c.decodeIfPresent(Routing.self, forKey: .routing)) ?? nil)
         generatedAt = try c.decodeIfPresent(Date.self, forKey: .generatedAt)
+        lessonsPending = max(0, (try? c.decodeIfPresent(Int.self, forKey: .lessonsPending)) ?? 0)
     }
 }
 
@@ -242,6 +246,8 @@ actor SwarmaClient {
         case insecureURL
         case noToken
         case unauthorized
+        /// 403: the token is fine but lacks a permission (e.g. `lesson:review`).
+        case forbidden
         case http(Int)
         case unreachable
         case badResponse
@@ -251,6 +257,7 @@ actor SwarmaClient {
             case .unreachable:   return L10n.t("Swarmaa not running")
             case .noToken:       return L10n.t("Swarmaa token file unreadable")
             case .unauthorized:  return L10n.t("Swarmaa rejected the token")
+            case .forbidden:     return L10n.t("This Mac's Swarmaa connection can't review lessons yet")
             case .badURL:        return L10n.t("Swarmaa service URL is invalid")
             case .insecureURL:   return L10n.t("Swarmaa needs https off this Mac")
             case .http(let status): return L10n.t("Swarmaa error (HTTP \(status))")
@@ -328,6 +335,36 @@ actor SwarmaClient {
         cached = nil
     }
 
+    // MARK: - Lessons
+
+    func lessons(limit: Int = 50) async throws -> [SwarmaLesson] {
+        let body = try JSONSerialization.data(withJSONObject: ["state": "candidate", "limit": limit])
+        return try await call("lesson_list", body: body, as: SwarmaLesson.List.self).lessons
+    }
+
+    /// `edits` goes on the wire only when it carries a change.
+    func review(id: String, action: SwarmaLesson.Action, reason: String? = nil,
+                edits: SwarmaLesson.Edits? = nil) async throws -> SwarmaLesson {
+        var object: [String: Any] = ["id": id, "action": action.rawValue]
+        if let reason, !reason.isEmpty { object["reason"] = reason }
+        if let edits, !edits.isEmpty { object["edits"] = try edits.json() }
+        let body = try JSONSerialization.data(withJSONObject: object)
+        let lesson = try await call("lesson_review", body: body, as: SwarmaLesson.Reviewed.self).lesson
+        cached = nil   // lessons_pending changed
+        return lesson
+    }
+
+    func session(id: String) async throws -> SwarmaSessionDetail {
+        let body = try JSONSerialization.data(withJSONObject: ["id": id])
+        return try await call("session_get", body: body, as: SwarmaSessionDetail.Wrapper.self).session
+    }
+
+    private func call<T: Decodable>(_ tool: String, body: Data, as: T.Type) async throws -> T {
+        let data = try await Self.send(makeRequest(tool: tool, body: body), via: transport)
+        do { return try Self.decoder.decode(Envelope<T>.self, from: data).result }
+        catch { throw Failure.badResponse }
+    }
+
     // MARK: - Requests
 
     private struct Envelope<T: Decodable>: Decodable { let result: T }
@@ -384,7 +421,8 @@ actor SwarmaClient {
         guard let http = response as? HTTPURLResponse else { throw Failure.badResponse }
         switch http.statusCode {
         case 200..<300: return data
-        case 401, 403:  throw Failure.unauthorized
+        case 401:       throw Failure.unauthorized
+        case 403:       throw Failure.forbidden
         default:        throw Failure.http(http.statusCode)
         }
     }

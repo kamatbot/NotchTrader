@@ -370,6 +370,9 @@ final class StatusItemController: NSObject, NSMenuDelegate {
             withTitle: L10n.t("Activity…"), action: #selector(openActivity), keyEquivalent: ""
         ).target = self
         menu.addItem(
+            withTitle: L10n.t("Review Lessons…"), action: #selector(reviewLessons), keyEquivalent: ""
+        ).target = self
+        menu.addItem(
             withTitle: L10n.t("Settings…"), action: #selector(openSettings), keyEquivalent: ","
         ).target = self
         menu.addItem(
@@ -407,6 +410,7 @@ final class StatusItemController: NSObject, NSMenuDelegate {
     }
 
     @objc private func openSettings() { onOpenSettings() }
+    @objc private func reviewLessons() { (NSApp.delegate as? AppDelegate)?.reviewLessons() }
     @objc private func runSetup() { (NSApp.delegate as? AppDelegate)?.runSetup() }
     @objc private func openActivity() { Costs.showActivity() }
     @objc private func quit() { NSApp.terminate(nil) }
