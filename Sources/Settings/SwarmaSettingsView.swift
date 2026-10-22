@@ -64,6 +64,12 @@ struct SwarmaSettingsView: View {
                     .font(.callout)
                     .foregroundStyle(tokenFileExists ? Color.secondary : Color.orange)
                     .fixedSize(horizontal: false, vertical: true)
+                LabeledContent {
+                    Button(L10n.t("Change connection…")) { NotificationCenter.default.post(name: .swarmaaRunSetup, object: nil) }
+                } label: {
+                    Text(L10n.t("Connect to another Mac, or sign in again with a different identity."))
+                        .foregroundStyle(.secondary)
+                }
             }
         }
         .formStyle(.grouped)

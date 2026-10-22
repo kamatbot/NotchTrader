@@ -98,6 +98,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var swarmaDirectory: SwarmaDirectory?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        NotificationCenter.default.addObserver(forName: .swarmaaRunSetup, object: nil, queue: .main) { [weak self] _ in
+            MainActor.assumeIsolated { self?.runSetup() }
+        }
         // Set here, not in the Info.plist: this call is applied at launch and
         // overrides `LSUIElement` either way. Removing the plist key alone left
         // the app registered as a UIElement with no Dock tile, which looked
@@ -1503,4 +1506,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         AntigravityBridge.owned.stop()
         Task { await phoneLinkServer?.stop() }
     }
+}
+
+extension Notification.Name {
+    /// "Run Setup…" from places with no direct line to the app delegate (notch menu, Settings).
+    static let swarmaaRunSetup = Notification.Name("app.swarmaa.runSetup")
 }

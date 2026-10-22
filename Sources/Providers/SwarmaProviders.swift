@@ -21,6 +21,11 @@ enum SwarmaCells {
         scope.hasPrefix("project:") ? String(scope.dropFirst("project:".count)) : scope
     }
 
+    /// A name short enough to sit under a ring.
+    static func ringName(_ name: String, limit: Int = 8) -> String {
+        name.count <= limit ? name : String(name.prefix(limit - 1)) + "…"
+    }
+
     /// "codex" reads as "Codex"; routing names vendors, not harnesses.
     static func vendorName(_ provider: String) -> String {
         provider.prefix(1).uppercased() + provider.dropFirst()
@@ -196,7 +201,9 @@ enum SwarmaCells {
             id: "primary",
             label: label,
             used: scope.completed24h,
-            usedText: counts,
+            // The ring's reading is the project's name: counts don't fit under a ring, and the
+            // band and the hover card already carry them.
+            usedText: ringName(label),
             detail: detail,
             bandOverride: scopeBand(scope, hasLiveWorker: status.workers.contains(where: \.live)),
             prefersUsedText: true
@@ -459,8 +466,9 @@ final class SwarmaDirectory {
                                       showsChats: Bool = true) -> [UsageProvider] {
         status.workers.map(\.name).sorted().map { SwarmAgentProvider(name: $0, client: client) }
             + (showsChats ? SwarmaCells.activeHarnesses(in: status).map { SwarmHarnessProvider(harness: $0, client: client) } : [])
-            // Only swarms that have started: a project with no tasks gets no cell.
-            + status.scopes.filter { $0.queued + $0.running + $0.blocked + $0.completed24h + $0.failed24h > 0 }
+            // Only active swarms: a project gets a cell while it has queued, running or blocked work.
+            // Finished work stays visible on the worker cells' activity cards.
+            + status.scopes.filter { $0.queued + $0.running + $0.blocked > 0 }
                 .map(\.scope).sorted().map { SwarmScopeProvider(scope: $0, client: client) }
             + (status.lessonsPending > 0 ? [SwarmLessonsProvider(client: client)] : [])
     }

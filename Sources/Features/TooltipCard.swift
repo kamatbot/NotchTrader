@@ -852,7 +852,8 @@ private struct SwarmaActivityTooltip: View {
             case .live: return (L10n.t("live"), Palette.ample)
             case .idle: return (L10n.t("idle"), secondaryInk)
             case .offline: return (L10n.t("offline"), Palette.critical)
-            case .counts(let r, let q): return (L10n.t("\(r) running · \(q) queued"), r > 0 ? Palette.ample : secondaryInk)
+            case .counts(let r, let q):
+                return (r > 0 ? L10n.t("\(r) running") : q > 0 ? L10n.t("\(q) queued") : L10n.t("idle"), r > 0 ? Palette.ample : secondaryInk)
             }
         }()
         return Text(text)
@@ -949,10 +950,18 @@ private struct SwarmaActivityTooltip: View {
         .frame(height: NotchLayout.activityRowHeight)
     }
 
+    /// Kinds that go to the same service share one arrow: "Edit · Review → Claude · Research → Codex".
+    static func routeLine(_ routes: [SwarmaActivity.Route]) -> String {
+        var order: [String] = [], kinds: [String: [String]] = [:]
+        for r in routes {
+            if kinds[r.provider] == nil { order.append(r.provider) }
+            kinds[r.provider, default: []].append(kindName(r.kind))
+        }
+        return order.map { "\(kinds[$0]!.joined(separator: " · ")) → \(SwarmaCells.vendorName($0))" }.joined(separator: " · ")
+    }
+
     private var next: some View {
-        let line = activity.routes
-            .map { "\(Self.kindName($0.kind)) → \(SwarmaCells.vendorName($0.provider))" }
-            .joined(separator: " · ")
+        let line = Self.routeLine(activity.routes)
         return VStack(alignment: .leading, spacing: NotchLayout.activityRowGap) {
             Text(line)
                 .font(Typography.cardBody.weight(.semibold))

@@ -318,10 +318,11 @@ final class SwarmaTests: XCTestCase {
         XCTAssertEqual(cell.kind, .swarm)
         let head = try XCTUnwrap(cell.headline)
         XCTAssertNil(head.usedFraction, "a scope has no limit to ring")
-        XCTAssertEqual(head.usedText, "1 running · 1 queued")
+        XCTAssertEqual(head.usedText, "demo")
         XCTAssertEqual(head.detail, "3 done today")
         XCTAssertEqual(head.bandOverride, .ample)
-        XCTAssertEqual(cell.headlineText, "1 running · 1 queued")
+        XCTAssertEqual(cell.headlineText, "demo")
+        XCTAssertEqual(SwarmaCells.ringName("retireodds"), "retireo…")
     }
 
     func testScopeCellMentionsFailures() throws {
@@ -329,7 +330,7 @@ final class SwarmaTests: XCTestCase {
         status.scopes[0] = .init(scope: "project:demo", queued: 0, running: 2, blocked: 0, completed24h: 3, failed24h: 2)
         let head = try XCTUnwrap(SwarmaCells.scopeSnapshot(scope: "project:demo", in: status).headline)
         XCTAssertEqual(head.detail, "3 done today · 2 failed")
-        XCTAssertEqual(head.usedText, "2 running · 0 queued")
+        XCTAssertEqual(head.usedText, "demo")
         XCTAssertEqual(head.bandOverride, .critical)
     }
 
@@ -381,7 +382,7 @@ final class SwarmaTests: XCTestCase {
         XCTAssertTrue(providers.allSatisfy { $0.kind == .swarm })
     }
 
-    func testProjectsWithoutStartedSwarmsGetNoCell() throws {
+    func testOnlyActiveSwarmsGetACell() throws {
         let client = SwarmaClient(serviceURL: { "http://127.0.0.1:1" }, tokenPath: { "" },
                                   transport: { _ in throw URLError(.cannotConnectToHost) })
         let status = try SwarmaClient.decoder.decode(SwarmaStatus.self, from: Data(#"""
@@ -390,7 +391,7 @@ final class SwarmaTests: XCTestCase {
                        {"scope":"project:done","queued":0,"running":0,"blocked":0,"completed_24h":2,"failed_24h":0}]}
             """#.utf8))
         XCTAssertEqual(SwarmaDirectory.providers(for: status, client: client).map(\.id),
-                       ["swarm:scope:project:busy", "swarm:scope:project:done"])
+                       ["swarm:scope:project:busy"])
     }
 
     // MARK: Store

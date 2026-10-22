@@ -2059,6 +2059,11 @@ final class NotchWindowController {
         settings.target = menuActions
         settings.isEnabled = true
         menu.addItem(settings)
+        // The menu bar icon can sit hidden behind a MacBook's notch; keep setup reachable from here.
+        let setup = NSMenuItem(title: L10n.t("Run Setup…"), action: #selector(MenuActions.runSetup(_:)), keyEquivalent: "")
+        setup.target = menuActions
+        setup.isEnabled = true
+        menu.addItem(setup)
         menu.addItem(.separator())
         menu.addItem(
             withTitle: L10n.t("Quit Swarmaa"),
@@ -2108,6 +2113,7 @@ final class MenuActions: NSObject {
     @objc func refreshNow(_ sender: Any?) { refresh() }
     @objc func togglePinned(_ sender: Any?) { pin() }
     @objc func openSettings(_ sender: Any?) { settings() }
+    @objc func runSetup(_ sender: Any?) { NotificationCenter.default.post(name: .swarmaaRunSetup, object: nil) }
     @objc func reviewLessons(_ sender: Any?) { lessons() }
 
     @objc func cancelSwarmTask(_ sender: Any?) {
