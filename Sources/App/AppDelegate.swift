@@ -109,8 +109,37 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         ChannelNotifications.installPresenter()
 
         // Before Preferences reads anything, or the first launch flag and
-        // every choice would be read from an empty domain.
+        // every choice would be read from an empty domain — and before the
+        // onboarding gate, which reads the migrated Swarmaa settings.
+        Preferences.migrateFromCodenotch()
         Preferences.migrateFromPreviousName()
+        if OnboardingGate.needsOnboarding() {
+            runSetup()
+        } else {
+            startNotch()
+        }
+    }
+
+    // MARK: Onboarding
+
+    private var onboarding: OnboardingWindowController?
+    private var notchStarted = false
+
+    /// "Run Setup…", and the first-launch gate. The notch starts when the
+    /// window closes, if it has not already.
+    @MainActor func runSetup() {
+        if let onboarding, onboarding.isShowing { onboarding.show(); return }
+        let controller = OnboardingWindowController(preferences: preferences) { [weak self] in
+            guard let self else { return }
+            self.onboarding = nil
+            if !self.notchStarted { self.startNotch() }
+        }
+        onboarding = controller
+        controller.show()
+    }
+
+    @MainActor private func startNotch() {
+        notchStarted = true
         let preferences = Preferences()
         self.preferences = preferences
 

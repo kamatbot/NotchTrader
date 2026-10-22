@@ -613,6 +613,8 @@ final class Preferences: ObservableObject {
         static let swarmaServiceURL = "swarmaServiceURL"
         static let swarmaTokenPath = "swarmaTokenPath"
         static let swarmaShowsChats = "swarmaShowsChats"
+        static let swarmaaOnboardingComplete = "swarmaaOnboardingComplete"
+        static let swarmaaServiceRoot = "swarmaaServiceRoot"
         static let introducedOllama = "introducedOllama"
         static let migratedOllamaID = "migratedOllamaLocalID"
         static let ollamaMetricsEnabled = "ollamaMetricsEnabled"
@@ -760,6 +762,9 @@ final class Preferences: ObservableObject {
         return migrated
     }
 
+    nonisolated static let onboardingCompleteKey = Keys.swarmaaOnboardingComplete
+    nonisolated static let serviceRootKey = Keys.swarmaaServiceRoot
+    nonisolated static let defaultSwarmaaServiceRoot = "~/Projects/swarma"
     nonisolated static let defaultSwarmaServiceURL = "http://127.0.0.1:8787"
     nonisolated static let defaultSwarmaTokenPath = "~/Projects/swarma/.local/notchtrader.json"
 
@@ -872,6 +877,25 @@ final class Preferences: ObservableObject {
 
         for (key, value) in old { defaults.set(value, forKey: key) }
         Log.usage.info("migrated \(old.count) settings from the previous app name")
+    }
+
+    /// The bundle id before the move to app.swarmaa.notch. Another id is another
+    /// defaults domain, so every setting would otherwise start empty.
+    static let codenotchDomain = "com.vinz.codenotch"
+    static let migratedFromCodenotchKey = "didMigrateFromCodenotch"
+
+    /// Copies the old id's settings across once. Keys already present in the new
+    /// domain win, so nothing newer is overwritten; the flag stops a second run.
+    static func migrateFromCodenotch(into defaults: UserDefaults = .standard,
+                                     from domain: String = codenotchDomain) {
+        guard !defaults.bool(forKey: migratedFromCodenotchKey) else { return }
+        if let old = UserDefaults(suiteName: domain)?.persistentDomain(forName: domain) {
+            for (key, value) in old where defaults.object(forKey: key) == nil {
+                defaults.set(value, forKey: key)
+            }
+            Log.usage.info("migrated \(old.count) settings from \(domain, privacy: .public)")
+        }
+        defaults.set(true, forKey: migratedFromCodenotchKey)
     }
 
     init(defaults: UserDefaults = .standard) {
@@ -1353,8 +1377,10 @@ final class Preferences: ObservableObject {
     /// update, and wiping data on every Sparkle update would be catastrophic.
     /// It has to be something the user asks for.
     static func eraseAllData() {
-        let bundleID = Bundle.main.bundleIdentifier ?? "com.vinz.codenotch"
+        let bundleID = Bundle.main.bundleIdentifier ?? "app.swarmaa.notch"
         UserDefaults.standard.removePersistentDomain(forName: bundleID)
+        // Or the next launch would copy the old id's settings straight back.
+        UserDefaults.standard.removePersistentDomain(forName: codenotchDomain)
         UserDefaults.standard.synchronize()
 
         let library = FileManager.default.urls(for: .libraryDirectory, in: .userDomainMask).first

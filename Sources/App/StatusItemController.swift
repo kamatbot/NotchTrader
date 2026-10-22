@@ -372,6 +372,9 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         menu.addItem(
             withTitle: L10n.t("Settings…"), action: #selector(openSettings), keyEquivalent: ","
         ).target = self
+        menu.addItem(
+            withTitle: L10n.t("Run Setup…"), action: #selector(runSetup), keyEquivalent: ""
+        ).target = self
         menu.addItem(.separator())
         menu.addItem(
             withTitle: L10n.t("Quit Swarmaa"), action: #selector(quit), keyEquivalent: "q"
@@ -404,6 +407,7 @@ final class StatusItemController: NSObject, NSMenuDelegate {
     }
 
     @objc private func openSettings() { onOpenSettings() }
+    @objc private func runSetup() { (NSApp.delegate as? AppDelegate)?.runSetup() }
     @objc private func openActivity() { Costs.showActivity() }
     @objc private func quit() { NSApp.terminate(nil) }
 
