@@ -428,6 +428,8 @@ actor SwarmaClient {
     /// One tool call, answered as `{"result": …}` whichever way it travelled:
     /// REST with the token file, or MCP `tools/call` with the OAuth access
     /// token (REST refuses OAuth tokens). A 401 in OAuth mode refreshes once.
+    func fetchRaw(tool: String, body: Data) async throws -> Data { try await fetch(tool: tool, body: body) }
+
     private func fetch(tool: String, body: Data) async throws -> Data {
         guard authMode() == .oauth else {
             return try await Self.send(makeRequest(tool: tool, body: body), via: transport)

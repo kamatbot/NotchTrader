@@ -400,6 +400,16 @@ final class SwarmaDirectory {
         didSet { if showsChats != oldValue { sync() } }
     }
 
+    /// Whether task updates are reported. Turning it off forgets the baseline,
+    /// so re-enabling records the current state and announces nothing.
+    var announcesUpdates = true {
+        didSet { if !announcesUpdates { previous = nil; announced = [] } }
+    }
+    /// Told once per task start/finish/failure, with the answer excerpt and reason when known.
+    var onUpdate: ((SwarmaUpdate, SwarmaTaskDetail?) -> Void)?
+    private var previous: SwarmaStatus?
+    private var announced: Set<String> = []
+
     /// Told once each time the recommended vendor changes.
     var onRoutingChange: ((SwarmaRoutingChange) -> Void)?
     private lazy var routingWatcher = SwarmaRoutingWatcher { [weak self] in self?.onRoutingChange?($0) }
@@ -416,6 +426,7 @@ final class SwarmaDirectory {
         timer?.invalidate()
         timer = nil
         guard enabled else {
+            previous = nil; announced = []
             registered = []
             store?.registerSwarmProviders([])
             return
@@ -449,6 +460,11 @@ final class SwarmaDirectory {
         case .success(let status):
             providers = Self.providers(for: status, client: client, showsChats: showsChats)
             routingWatcher.observe(status.routing)
+            if announcesUpdates {
+                let updates = SwarmaUpdates.diff(previous: previous, current: status, announced: &announced)
+                previous = status
+                announce(updates)
+            }
         case .failure:
             // Nothing has ever answered: one cell, so the notch says it.
             // Otherwise the cells already up flip to offline on refresh.
@@ -459,6 +475,17 @@ final class SwarmaDirectory {
             store.registerSwarmProviders(providers)
         } else {
             store.refreshSwarm()
+        }
+    }
+
+    private func announce(_ updates: [SwarmaUpdate]) {
+        guard !updates.isEmpty else { return }
+        Task { [weak self] in
+            for update in updates {
+                guard let self else { return }
+                let detail = update.kind == .started ? nil : try? await client.taskDetail(id: update.taskID)
+                onUpdate?(update, detail)
+            }
         }
     }
 

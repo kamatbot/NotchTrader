@@ -479,6 +479,7 @@ struct SettingsView: View {
     var previewResetAlert: (() -> Void)? = nil
     var previewSessionLimitAlert: (() -> Void)? = nil
     var previewWeeklyLimitAlert: (() -> Void)? = nil
+    var previewSwarmaUpdate: (() -> Void)? = nil
     var sendTestNotification: (() -> Void)? = nil
     @Environment(\.codenotchReduceTransparency) private var reduceTransparency
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -722,7 +723,7 @@ struct SettingsView: View {
     @ViewBuilder
     private func paneContent(for section: SettingsSection) -> some View {
         switch section {
-        case .swarma:        SwarmaSettingsView(preferences: preferences)
+        case .swarma:        SwarmaSettingsView(preferences: preferences, previewSwarmaUpdate: previewSwarmaUpdate)
         case .accounts:      accountsPane
         case .phone:         phonePane
         case .costs:         CostSettingsPane()

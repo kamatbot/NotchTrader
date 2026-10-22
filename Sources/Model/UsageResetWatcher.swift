@@ -23,6 +23,10 @@ struct UsageAlertEvent: Equatable {
     var noticeTitle: String? = nil
     var noticeSubtitle: String? = nil
     var noticeStatus: String? = nil
+    /// Up to three more lines under the status (a swarm update's answer excerpt).
+    var noticeDetail: String? = nil
+    /// Failed or needs-you: red dot rather than green.
+    var noticeIsProblem = false
 
     init(
         kind: UsageAlertKind = .reset,

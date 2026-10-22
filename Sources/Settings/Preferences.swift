@@ -81,6 +81,11 @@ final class Preferences: ObservableObject {
     }
 
     /// Whether each harness with a chat in progress gets a cell.
+    /// Silent chat-style cards in the notch when a Swarmaa task starts, finishes or fails.
+    @Published var swarmaUpdates: Bool {
+        didSet { defaults.set(swarmaUpdates, forKey: Keys.swarmaUpdates) }
+    }
+
     @Published var swarmaShowsChats: Bool {
         didSet { defaults.set(swarmaShowsChats, forKey: Keys.swarmaShowsChats) }
     }
@@ -613,6 +618,7 @@ final class Preferences: ObservableObject {
         static let swarmaServiceURL = "swarmaServiceURL"
         static let swarmaTokenPath = "swarmaTokenPath"
         static let swarmaShowsChats = "swarmaShowsChats"
+        static let swarmaUpdates = "swarmaUpdates"
         static let swarmaaOnboardingComplete = "swarmaaOnboardingComplete"
         static let swarmaaServiceRoot = "swarmaaServiceRoot"
         static let swarmaAuthMode = "swarmaAuthMode"
@@ -1138,6 +1144,7 @@ final class Preferences: ObservableObject {
         self.swarmaServiceURL = Self.storedSwarmaServiceURL(defaults: defaults)
         self.swarmaTokenPath = Self.storedSwarmaTokenPath(defaults: defaults)
         self.swarmaShowsChats = Self.storedSwarmaShowsChats(defaults: defaults)
+        self.swarmaUpdates = defaults.object(forKey: Keys.swarmaUpdates) as? Bool ?? true
         // Read from the system rather than from our own store: the user can turn
         // this off in System Settings, and a remembered `true` would then be a lie.
         self.launchAtLogin = Self.isRegisteredForLogin

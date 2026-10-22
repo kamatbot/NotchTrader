@@ -32,6 +32,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
     private let quit: () -> Void
     private let previewResetAlert: (() -> Void)?
     private let previewSessionLimitAlert: (() -> Void)?
+    private let previewSwarmaUpdate: (() -> Void)?
     private let previewWeeklyLimitAlert: (() -> Void)?
     private let sendTestNotification: (() -> Void)?
 
@@ -46,6 +47,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
          quit: @escaping () -> Void,
          previewResetAlert: (() -> Void)? = nil,
          previewSessionLimitAlert: (() -> Void)? = nil,
+         previewSwarmaUpdate: (() -> Void)? = nil,
          previewWeeklyLimitAlert: (() -> Void)? = nil,
          sendTestNotification: (() -> Void)? = nil,
          usageStore: UsageStore? = nil,
@@ -62,6 +64,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
         self.quit = quit
         self.previewResetAlert = previewResetAlert
         self.previewSessionLimitAlert = previewSessionLimitAlert
+        self.previewSwarmaUpdate = previewSwarmaUpdate
         self.previewWeeklyLimitAlert = previewWeeklyLimitAlert
         self.sendTestNotification = sendTestNotification
         self.switchAccount = switchAccount
@@ -275,6 +278,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
                                    previewResetAlert: previewResetAlert,
                                    previewSessionLimitAlert: previewSessionLimitAlert,
                                    previewWeeklyLimitAlert: previewWeeklyLimitAlert,
+                                   previewSwarmaUpdate: previewSwarmaUpdate,
                                    sendTestNotification: sendTestNotification)
                 // One point over the macOS default, for any text without its own font.
                 .font(.system(size: 14))
