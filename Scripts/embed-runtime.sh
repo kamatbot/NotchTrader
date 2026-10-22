@@ -27,13 +27,15 @@ OPTS=(--force --sign "$ID")
 case "$NAME$ID" in *"Developer ID"*) OPTS+=(--options runtime --timestamp);; esac
 # Notarization wants a secure timestamp (Release); Debug builds skip the network round trip.
 [ "${CONFIGURATION:-}" = Release ] || OPTS=("${OPTS[@]/--timestamp/--timestamp=none}")
+# Apple's timestamp service drops requests now and then; retry each file before failing the build.
+sign() { for n in 1 2 3 4 5; do codesign "$@" && return 0; sleep $n; done; return 1; }
 count=0
 while IFS= read -r -d '' f; do
   case "$(file -b "$f")" in *Mach-O*)
     if [ "$(basename "$f")" = node ] && [ "$f" = "$DEST/node" ]; then
-      codesign "${OPTS[@]}" --entitlements "$SRCROOT/Scripts/node.entitlements" "$f"
+      sign "${OPTS[@]}" --entitlements "$SRCROOT/Scripts/node.entitlements" "$f"
     else
-      codesign "${OPTS[@]}" "$f"
+      sign "${OPTS[@]}" "$f"
     fi
     count=$((count+1));;
   esac
