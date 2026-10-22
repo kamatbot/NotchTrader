@@ -1,6 +1,6 @@
 name: Codenotch
 options:
-  bundleIdPrefix: com.vinz
+  bundleIdPrefix: app.swarmaa
   deploymentTarget:
     macOS: "15.0"
   createIntermediateGroups: true
@@ -122,7 +122,7 @@ targets:
         SUScheduledCheckInterval: 86400
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.vinz.codenotch
+        PRODUCT_BUNDLE_IDENTIFIER: app.swarmaa.notch
         # The app is Swarmaa; the target and Swift module keep the name Codenotch
         # so every `import Codenotch` and the project path stay as they are.
         PRODUCT_NAME: Swarmaa
@@ -148,7 +148,7 @@ targets:
       - target: Codenotch
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.vinz.codenotch.tests
+        PRODUCT_BUNDLE_IDENTIFIER: app.swarmaa.notch.tests
         GENERATE_INFOPLIST_FILE: "YES"
         # The host app's product is Swarmaa.app (PRODUCT_NAME), not the target name.
         TEST_HOST: "$(BUILT_PRODUCTS_DIR)/Swarmaa.app/Contents/MacOS/Swarmaa"

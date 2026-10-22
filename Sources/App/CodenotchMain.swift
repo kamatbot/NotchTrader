@@ -12,6 +12,7 @@ struct CodenotchMain: App {
                 CommandGroup(replacing: .appSettings) {
                     Button("Settings…") { appDelegate.openSettings() }
                         .keyboardShortcut(",", modifiers: .command)
+                    Button("Run Setup…") { appDelegate.runSetup() }
                 }
             }
     }

@@ -454,7 +454,7 @@ schedule.
 unified log.
 
 ```sh
-/usr/bin/log stream --predicate 'subsystem == "com.vinz.codenotch"' --level debug
+/usr/bin/log stream --predicate 'subsystem == "app.swarmaa.notch"' --level debug
 ```
 
 ## Contributing
