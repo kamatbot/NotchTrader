@@ -17,6 +17,8 @@ struct OnboardingView: View {
                     case .review: ReviewPage(model: model)
                     case .progress: ProgressPage(model: model)
                     case .summary: SummaryPage(model: model)
+                    case .connect: ConnectPage(model: model)
+                    case .connected: ConnectedPage()
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -28,6 +30,7 @@ struct OnboardingView: View {
         .frame(minWidth: 720, minHeight: 640)
     }
 
+    /// Secondary actions sit left of the primary one, which is always bottom-right.
     private var footer: some View {
         HStack {
             if model.canGoBack {
@@ -36,7 +39,7 @@ struct OnboardingView: View {
             }
             Spacer()
             switch model.page {
-            case .summary:
+            case .summary, .connected:
                 Button("Finish") { onFinish() }
                     .keyboardShortcut(.defaultAction)
                     .accessibilityLabel("Finish setup and start Swarmaa")
@@ -44,6 +47,16 @@ struct OnboardingView: View {
                 if model.failure != nil {
                     Button("Try Again") { model.retry() }.keyboardShortcut(.defaultAction)
                 }
+            case .connect:
+                if model.failure != nil {
+                    Button("Try Again") { model.retry() }.keyboardShortcut(.defaultAction)
+                }
+            case .welcome:
+                Button("Skip for now") { model.skip(); onFinish() }
+                    .accessibilityLabel("Skip setup and show usage only")
+                Button(model.choice == .connectRemote ? "Connect" : "Continue") { model.goNext() }
+                    .keyboardShortcut(.defaultAction)
+                    .disabled(!model.welcomeActions.contains(.continue))
             default:
                 Button(model.page == .review ? "Connect" : "Continue") { model.goNext() }
                     .keyboardShortcut(.defaultAction)
@@ -78,38 +91,94 @@ private func chooseFolders(multiple: Bool, message: String) -> [URL] {
 
 private struct WelcomePage: View {
     @ObservedObject var model: OnboardingModel
+
     var body: some View {
         PageHeader(title: "Welcome to Swarmaa",
-                   subtitle: "Swarmaa watches your coding agents from the notch: how much quota each has left, and what every chat and project is doing. Setup connects the agents on this Mac to the Swarmaa service so they can share work and context.")
-        GroupBox("Swarmaa service folder") {
-            VStack(alignment: .leading, spacing: 8) {
-                HStack {
-                    TextField("Service folder", text: $model.serviceRoot)
-                        .textFieldStyle(.roundedBorder)
-                        .accessibilityLabel("Swarmaa service folder path")
-                    Button("Choose…") {
-                        if let url = chooseFolders(multiple: false, message: "Choose the Swarmaa service folder").first {
-                            model.serviceRoot = url.path
-                        }
+                   subtitle: "Swarmaa watches your coding agents from the notch: how much quota each has left, and what every chat and project is doing. Choose where your Swarmaa lives. You can also skip this and just see usage.")
+        option(.setUpHere, "Set up Swarmaa on this Mac",
+               model.bundledRuntime == nil
+               ? "This build doesn't include the Swarmaa runtime. Choose another option, or skip."
+               : "Installs the service, database and workers that come with this app. Nothing else to install.") {
+            if model.installing { HStack { ProgressView().controlSize(.small); Text("Installing…") } }
+        }
+        option(.useService, "Use a Swarmaa service on this Mac",
+               "For a development install. Point at its folder.") {
+            HStack {
+                TextField("Service folder", text: $model.serviceRoot)
+                    .textFieldStyle(.roundedBorder)
+                    .accessibilityLabel("Swarmaa service folder path")
+                Button("Choose…") {
+                    if let url = chooseFolders(multiple: false, message: "Choose the Swarmaa service folder").first {
+                        model.serviceRoot = url.path
                     }
-                }
-                if model.rootIsValid {
-                    if model.detecting {
-                        HStack { ProgressView().controlSize(.small); Text("Looking at this Mac…") }
-                    } else if let error = model.detectionError {
-                        Text(error).foregroundStyle(.red).font(.callout)
-                        Button("Try Again") { model.retryDetection() }
-                    } else {
-                        Label("Service found", systemImage: "checkmark.circle.fill").foregroundStyle(.green)
-                    }
-                } else {
-                    Label("Not found", systemImage: "exclamationmark.triangle.fill").foregroundStyle(.orange)
-                    Text("The Swarmaa service must be installed first. This folder needs scripts/setup.ts and package.json. A later release will bundle the service. Until then, install it and choose its folder here.")
-                        .font(.callout).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
                 }
             }
-            .padding(8)
+            if model.rootIsValid {
+                if model.detecting {
+                    HStack { ProgressView().controlSize(.small); Text("Looking at this Mac…") }
+                } else if let error = model.detectionError {
+                    Text(error).foregroundStyle(.red).font(.callout)
+                    Button("Try Again") { model.retryDetection() }
+                } else if model.detection != nil {
+                    Label("Service found", systemImage: "checkmark.circle.fill").foregroundStyle(.green)
+                }
+            } else {
+                Label("Not found", systemImage: "exclamationmark.triangle.fill").foregroundStyle(.orange)
+            }
         }
+        option(.connectRemote, "Connect to an existing Swarmaa",
+               "For a second Mac. Signs in with your browser and passkey; nothing is installed here.") {
+            TextField("https://api.swarmaa.com", text: $model.remoteAddress)
+                .textFieldStyle(.roundedBorder)
+                .accessibilityLabel("Swarmaa address")
+        }
+        if let error = model.welcomeError {
+            Text(error).foregroundStyle(.red).font(.callout)
+        }
+    }
+
+    private func option<Detail: View>(_ choice: WelcomeChoice, _ title: LocalizedStringKey, _ blurb: LocalizedStringKey,
+                                      @ViewBuilder detail: () -> Detail) -> some View {
+        let selected = model.choice == choice
+        return GroupBox {
+            VStack(alignment: .leading, spacing: 8) {
+                Button { model.choice = choice } label: {
+                    HStack(alignment: .top, spacing: 8) {
+                        Image(systemName: selected ? "largecircle.fill.circle" : "circle")
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(title).font(.headline)
+                            Text(blurb).font(.callout).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                        }
+                        Spacer(minLength: 0)
+                    }
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityAddTraits(selected ? .isSelected : [])
+                if selected { detail() }
+            }
+            .padding(6)
+        }
+    }
+}
+
+private struct ConnectPage: View {
+    @ObservedObject var model: OnboardingModel
+    var body: some View {
+        PageHeader(title: "Approve in your browser",
+                   subtitle: "Your browser opened Swarmaa's sign-in page. Approve this Mac with your passkey, then come back here.")
+        if let failure = model.failure {
+            Text(failure).foregroundStyle(.red).fixedSize(horizontal: false, vertical: true)
+        } else {
+            HStack { ProgressView().controlSize(.small); Text("Waiting for approval…") }
+        }
+    }
+}
+
+private struct ConnectedPage: View {
+    var body: some View {
+        PageHeader(title: "You're connected",
+                   subtitle: "This Mac now shows your Swarmaa agents and swarms in the notch. Nothing was installed on this Mac.")
     }
 }
 

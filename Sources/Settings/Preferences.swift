@@ -615,6 +615,7 @@ final class Preferences: ObservableObject {
         static let swarmaShowsChats = "swarmaShowsChats"
         static let swarmaaOnboardingComplete = "swarmaaOnboardingComplete"
         static let swarmaaServiceRoot = "swarmaaServiceRoot"
+        static let swarmaAuthMode = "swarmaAuthMode"
         static let introducedOllama = "introducedOllama"
         static let migratedOllamaID = "migratedOllamaLocalID"
         static let ollamaMetricsEnabled = "ollamaMetricsEnabled"
@@ -765,6 +766,12 @@ final class Preferences: ObservableObject {
     nonisolated static let onboardingCompleteKey = Keys.swarmaaOnboardingComplete
     nonisolated static let serviceRootKey = Keys.swarmaaServiceRoot
     nonisolated static let defaultSwarmaaServiceRoot = "~/Projects/swarma"
+    nonisolated static let authModeKey = Keys.swarmaAuthMode
+    /// "token" (default): a token file for a service on this Mac, over REST.
+    /// "oauth": a remote Swarmaa reached over MCP with Keychain-held OAuth tokens.
+    nonisolated static func storedSwarmaAuthMode(defaults: UserDefaults = .standard) -> SwarmaAuthMode {
+        defaults.string(forKey: Keys.swarmaAuthMode) == "oauth" ? .oauth : .tokenFile
+    }
     nonisolated static let defaultSwarmaServiceURL = "http://127.0.0.1:8787"
     nonisolated static let defaultSwarmaTokenPath = "~/Projects/swarma/.local/notchtrader.json"
 
