@@ -55,6 +55,14 @@ targets:
           # copy any unrecognised file into the app bundle's Resources, and a
           # developer README has no business shipping to users.
           - "Vendor/**/README.md"
+    # Embeds and signs the Swarmaa runtime; see Scripts/embed-runtime.sh and the
+    # SWARMAA_RUNTIME_SRC variable (default: the service repo's build/runtime).
+    preBuildScripts:
+      - name: Embed Swarmaa runtime
+        script: bash "$SRCROOT/Scripts/embed-runtime.sh"
+        basedOnDependencyAnalysis: false
+        inputFiles:
+          - $(SRCROOT)/Scripts/embed-runtime.sh
     dependencies:
       - package: Sparkle
       - package: SwiftNIO

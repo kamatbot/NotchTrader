@@ -273,6 +273,8 @@ actor SwarmaClient {
     private let transport: Transport
     private let cacheTTL: TimeInterval
     private let now: @Sendable () -> Date
+    private let authMode: @Sendable () -> SwarmaAuthMode
+    private let oauth: SwarmaOAuthSession
 
     private var cached: (key: String, at: Date, result: Result<SwarmaStatus, Failure>)?
     private var inFlight: (key: String, task: Task<SwarmaStatus, Error>)?
@@ -282,8 +284,12 @@ actor SwarmaClient {
         tokenPath: @escaping @Sendable () -> String = { Preferences.storedSwarmaTokenPath() },
         transport: @escaping Transport = SwarmaClient.liveTransport,
         cacheTTL: TimeInterval = 4,
-        now: @escaping @Sendable () -> Date = { Date() }
+        now: @escaping @Sendable () -> Date = { Date() },
+        authMode: @escaping @Sendable () -> SwarmaAuthMode = { Preferences.storedSwarmaAuthMode() },
+        oauth: SwarmaOAuthSession = .shared
     ) {
+        self.authMode = authMode
+        self.oauth = oauth
         self.serviceURL = serviceURL
         self.tokenPath = tokenPath
         self.transport = transport
@@ -300,10 +306,8 @@ actor SwarmaClient {
         }
         if let inFlight, inFlight.key == key { return try await inFlight.task.value }
 
-        let request = try makeRequest(tool: "swarm_status", body: Data("{}".utf8))
-        let transport = self.transport
         let task = Task { () throws -> SwarmaStatus in
-            let data = try await Self.send(request, via: transport)
+            let data = try await self.fetch(tool: "swarm_status", body: Data("{}".utf8))
             do {
                 return try Self.decoder.decode(Envelope<SwarmaStatus>.self, from: data).result
             } catch {
@@ -330,7 +334,7 @@ actor SwarmaClient {
             enum CodingKeys: String, CodingKey { case taskId = "task_id", expectedVersion = "expected_version" }
         }
         let body = try JSONEncoder().encode(Body(taskId: id, expectedVersion: expectedVersion))
-        _ = try await Self.send(makeRequest(tool: "task_cancel", body: body), via: transport)
+        _ = try await fetch(tool: "task_cancel", body: body)
         // The next look must see the task gone, not the answer from before.
         cached = nil
     }
@@ -360,7 +364,7 @@ actor SwarmaClient {
     }
 
     private func call<T: Decodable>(_ tool: String, body: Data, as: T.Type) async throws -> T {
-        let data = try await Self.send(makeRequest(tool: tool, body: body), via: transport)
+        let data = try await fetch(tool: tool, body: body)
         do { return try Self.decoder.decode(Envelope<T>.self, from: data).result }
         catch { throw Failure.badResponse }
     }
@@ -370,6 +374,69 @@ actor SwarmaClient {
     private struct Envelope<T: Decodable>: Decodable { let result: T }
 
     private struct TokenFile: Decodable { let token: String }
+
+    /// One tool call, answered as `{"result": …}` whichever way it travelled:
+    /// REST with the token file, or MCP `tools/call` with the OAuth access
+    /// token (REST refuses OAuth tokens). A 401 in OAuth mode refreshes once.
+    private func fetch(tool: String, body: Data) async throws -> Data {
+        guard authMode() == .oauth else {
+            return try await Self.send(makeRequest(tool: tool, body: body), via: transport)
+        }
+        var forceRefresh = false
+        while true {
+            let token: String
+            do { token = try await oauth.accessToken(forceRefresh: forceRefresh) } catch { throw Failure.unauthorized }
+            let request = try Self.mcpRequest(serviceURL: serviceURL(), tool: tool, arguments: body, accessToken: token)
+            do {
+                return try Self.unwrapMCP(try await Self.send(request, via: transport))
+            } catch Failure.unauthorized where !forceRefresh {
+                forceRefresh = true
+            }
+        }
+    }
+
+    // MARK: - MCP
+
+    /// `POST {origin}/mcp` with a JSON-RPC `tools/call`; the service is stateless, so no `initialize`.
+    nonisolated static func mcpRequest(serviceURL: String, tool: String, arguments: Data, accessToken: String, id: Int = 1) throws -> URLRequest {
+        var url = try endpoint(serviceURL, tool: tool)
+        guard var parts = URLComponents(url: url, resolvingAgainstBaseURL: false) else { throw Failure.badURL }
+        parts.path = parts.path.replacingOccurrences(of: "/api/tools/\(tool)", with: "/mcp")
+        guard let mcp = parts.url else { throw Failure.badURL }
+        url = mcp
+        let args = (try? JSONSerialization.jsonObject(with: arguments)) as? [String: Any] ?? [:]
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.timeoutInterval = 5
+        request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("application/json, text/event-stream", forHTTPHeaderField: "Accept")
+        request.setValue("2025-11-25", forHTTPHeaderField: "MCP-Protocol-Version")
+        request.httpBody = try JSONSerialization.data(withJSONObject: [
+            "jsonrpc": "2.0", "id": id, "method": "tools/call",
+            "params": ["name": tool, "arguments": args] as [String: Any],
+        ] as [String: Any])
+        return request
+    }
+
+    /// Maps a JSON-RPC `tools/call` answer onto the REST envelope the decoders expect.
+    nonisolated static func unwrapMCP(_ data: Data) throws -> Data {
+        guard let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { throw Failure.badResponse }
+        guard let result = root["result"] as? [String: Any] else { throw Failure.badResponse }
+        let structured = result["structuredContent"]
+        let text = ((result["content"] as? [[String: Any]])?.first?["text"] as? String)
+        if result["isError"] as? Bool == true {
+            let code = ((text.flatMap { try? JSONSerialization.jsonObject(with: Data($0.utf8)) } as? [String: Any])?["error"] as? [String: Any])?["code"] as? String
+            if code?.contains("forbidden") == true || code == "permission_denied" { throw Failure.forbidden }
+            if code == "unauthorized" { throw Failure.unauthorized }
+            throw Failure.badResponse
+        }
+        let value: Any
+        if let structured { value = structured }
+        else if let text, let parsed = try? JSONSerialization.jsonObject(with: Data(text.utf8), options: .fragmentsAllowed) { value = parsed }
+        else { throw Failure.badResponse }
+        return try JSONSerialization.data(withJSONObject: ["result": value])
+    }
 
     private func makeRequest(tool: String, body: Data) throws -> URLRequest {
         var request = URLRequest(url: try Self.endpoint(serviceURL(), tool: tool))

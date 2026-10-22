@@ -20,7 +20,21 @@ enum OnboardingGate {
 
 enum OnboardingPage: Int, CaseIterable {
     case welcome, services, projects, remote, review, progress, summary
+    /// "Connect to an existing Swarmaa": waiting for the browser approval, then done. Not part of the local-install sequence.
+    case connect, connected
 }
+
+/// What the Welcome step is for: where this Mac's Swarmaa comes from.
+enum WelcomeChoice: String, CaseIterable {
+    /// Install the runtime bundled in the app and set it up here.
+    case setUpHere
+    /// A Swarmaa service folder already on this Mac (a development checkout).
+    case useService
+    /// A Swarmaa on another machine, reached with browser sign-in (a second Mac).
+    case connectRemote
+}
+
+enum WelcomeAction: Hashable { case `continue`, skip }
 
 struct OnboardingProject: Identifiable, Equatable {
     let id = UUID()
@@ -47,6 +61,11 @@ final class OnboardingModel: ObservableObject {
     @Published private(set) var page: OnboardingPage = .welcome
 
     // Welcome
+    @Published var choice: WelcomeChoice
+    @Published var remoteAddress = "https://api.swarmaa.com"
+    @Published private(set) var installing = false
+    @Published private(set) var welcomeError: String?
+    @Published private(set) var connecting = false
     @Published var serviceRoot: String { didSet { if oldValue != serviceRoot { rootChanged() } } }
     @Published private(set) var detection: SetupDetection?
     @Published private(set) var detectionError: String?
@@ -73,14 +92,33 @@ final class OnboardingModel: ObservableObject {
     private let engine: SetupEngine
     private let runOffMain: (@escaping () -> Void) -> Void
     private var detectToken = 0
+    /// The runtime inside the app, nil in a build that doesn't embed one.
+    let bundledRuntime: URL?
+    private let installDirectory: URL
+    private let installer: RuntimeInstaller
+    private let makeFlow: () -> SwarmaOAuthFlow
+    private var activeFlow: SwarmaOAuthFlow?
 
     /// `runOffMain` is injectable so tests can run the engine inline.
     init(defaults: UserDefaults = .standard, engine: SetupEngine = SetupEngine(),
+         bundledRuntime: URL? = RuntimeInstaller.bundledRuntime,
+         installDirectory: URL = RuntimeInstaller.defaultInstallDirectory,
+         installer: RuntimeInstaller = RuntimeInstaller(),
+         makeFlow: @escaping () -> SwarmaOAuthFlow = { SwarmaOAuthFlow(open: { NSWorkspace.shared.open($0) }) },
          runOffMain: @escaping (@escaping () -> Void) -> Void = { DispatchQueue.global(qos: .userInitiated).async(execute: $0) }) {
         self.defaults = defaults
         self.engine = engine
+        self.bundledRuntime = bundledRuntime
+        self.installDirectory = installDirectory
+        self.installer = installer
+        self.makeFlow = makeFlow
         self.runOffMain = runOffMain
-        self.serviceRoot = defaults.string(forKey: Preferences.serviceRootKey) ?? Preferences.defaultSwarmaaServiceRoot
+        let stored = defaults.string(forKey: Preferences.serviceRootKey) ?? Preferences.defaultSwarmaaServiceRoot
+        self.serviceRoot = stored
+        // An existing service on this Mac keeps working as before; otherwise the bundled runtime is the default.
+        let storedIsDev = Self.isValidRoot(URL(fileURLWithPath: (stored as NSString).expandingTildeInPath))
+            && !RuntimeInstaller.isBundledLayout(URL(fileURLWithPath: (stored as NSString).expandingTildeInPath))
+        self.choice = storedIsDev ? .useService : .setUpHere
         for h in SetupHarness.allCases { choices[h] = ServiceChoice() }
         choices[.notchtrader] = ServiceChoice(connect: true)
         rootChanged()
@@ -90,11 +128,31 @@ final class OnboardingModel: ObservableObject {
 
     var rootURL: URL { URL(fileURLWithPath: (serviceRoot as NSString).expandingTildeInPath) }
 
-    var rootIsValid: Bool {
+    var rootIsValid: Bool { Self.isValidRoot(rootURL) }
+
+    /// A development checkout (scripts/setup.ts) or an installed runtime (dist/scripts/setup.js).
+    static func isValidRoot(_ root: URL) -> Bool {
         let fm = FileManager.default
-        return fm.fileExists(atPath: rootURL.appendingPathComponent("scripts/setup.ts").path)
-            && fm.fileExists(atPath: rootURL.appendingPathComponent("package.json").path)
+        return fm.fileExists(atPath: root.appendingPathComponent("package.json").path)
+            && (fm.fileExists(atPath: root.appendingPathComponent("scripts/setup.ts").path)
+                || RuntimeInstaller.isBundledLayout(root))
     }
+
+    /// What the Welcome footer offers right now. "Skip for now" is always there, so no state is a dead end.
+    var welcomeActions: Set<WelcomeAction> {
+        var actions: Set<WelcomeAction> = [.skip]
+        let ready: Bool
+        switch choice {
+        case .setUpHere: ready = bundledRuntime != nil && !installing
+        case .useService: ready = rootIsValid && detection != nil && !detecting
+        case .connectRemote: ready = (try? SwarmaOAuth.origin(remoteAddress)) != nil
+        }
+        if ready { actions.insert(.continue) }
+        return actions
+    }
+
+    /// Leaves onboarding with usage rings only: nothing is installed or connected.
+    func skip() { markComplete() }
 
     private func rootChanged() {
         detection = nil
@@ -207,7 +265,8 @@ final class OnboardingModel: ObservableObject {
 
     var canContinue: Bool {
         switch page {
-        case .welcome: return rootIsValid && detection != nil
+        case .welcome: return welcomeActions.contains(.continue)
+        case .connect: return false
         case .projects: return projectsProblem == nil
         case .remote: return !setUpRemoteNow || !hostname.trimmingCharacters(in: .whitespaces).isEmpty
         case .review: return preview?.ok == true && !busy
@@ -216,7 +275,7 @@ final class OnboardingModel: ObservableObject {
         }
     }
 
-    var canGoBack: Bool { page != .welcome && page != .summary && !(page == .progress && busy) }
+    var canGoBack: Bool { page != .welcome && page != .summary && page != .connected && !(page == .progress && busy) && !installing }
 
     static func next(after page: OnboardingPage, needsRemote: Bool) -> OnboardingPage? {
         switch page {
@@ -229,23 +288,86 @@ final class OnboardingModel: ObservableObject {
         switch page {
         case .review: return needsRemote ? .remote : .projects
         case .progress: return .review
+        case .connect: return .welcome
         default: return OnboardingPage(rawValue: page.rawValue - 1)
         }
     }
 
     func goBack() {
         guard canGoBack, let p = Self.previous(before: page, needsRemote: needsRemote) else { return }
+        if page == .connect { activeFlow?.cancel(); activeFlow = nil; connecting = false }
         failure = nil
         page = p
     }
 
     /// Continue / Connect.
     func goNext() {
-        guard canContinue, let n = Self.next(after: page, needsRemote: needsRemote) else { return }
-        if page == .welcome { defaults.set(serviceRoot, forKey: Preferences.serviceRootKey) }
+        guard canContinue else { return }
+        if page == .welcome {
+            switch choice {
+            case .setUpHere: installBundledRuntime(); return
+            case .connectRemote: page = .connect; connectRemote(); return
+            case .useService: defaults.set(serviceRoot, forKey: Preferences.serviceRootKey); defaults.set("token", forKey: Preferences.authModeKey)
+            }
+        }
+        guard let n = Self.next(after: page, needsRemote: needsRemote) else { return }
         page = n
         if n == .review { runPreview() }
         if n == .progress { runForReal() }
+    }
+
+    // MARK: Bundled runtime
+
+    /// Copies the app's runtime into Application Support (when newer), points the app at it, and moves on.
+    func installBundledRuntime() {
+        guard let bundled = bundledRuntime else { return }
+        installing = true; welcomeError = nil
+        let installer = self.installer, dest = installDirectory
+        runOffMain { [weak self] in
+            let result = Result { try installer.install(from: bundled, to: dest) }
+            DispatchQueue.main.async {
+                guard let self else { return }
+                self.installing = false
+                switch result {
+                case .success:
+                    self.serviceRoot = dest.path   // re-detects against the installed runtime
+                    self.defaults.set(dest.path, forKey: Preferences.serviceRootKey)
+                    self.defaults.set("token", forKey: Preferences.authModeKey)
+                    self.page = .services
+                case .failure(let e): self.welcomeError = "Couldn't install Swarmaa: \(e.localizedDescription)"
+                }
+            }
+        }
+    }
+
+    // MARK: Existing Swarmaa (second Mac)
+
+    var connectError: String? { failure }
+
+    func connectRemote() {
+        failure = nil; connecting = true
+        let flow = makeFlow(), address = remoteAddress
+        activeFlow = flow
+        Task { [weak self] in
+            do {
+                try await flow.signIn(address: address)
+                await MainActor.run { self?.remoteConnected(address: address) }
+            } catch {
+                await MainActor.run {
+                    guard let self, self.activeFlow === flow else { return }
+                    self.connecting = false
+                    self.failure = error.localizedDescription
+                }
+            }
+        }
+    }
+
+    func remoteConnected(address: String) {
+        connecting = false; activeFlow = nil
+        if let origin = try? SwarmaOAuth.origin(address) { defaults.set(origin.absoluteString.trimmingCharacters(in: CharacterSet(charactersIn: "/")), forKey: "swarmaServiceURL") }
+        defaults.set("oauth", forKey: Preferences.authModeKey)
+        defaults.set(true, forKey: "swarmaEnabled")
+        page = .connected
     }
 
     // MARK: Engine runs
@@ -268,7 +390,13 @@ final class OnboardingModel: ObservableObject {
         }
     }
 
-    func retry() { page == .review ? runPreview() : runForReal() }
+    func retry() {
+        switch page {
+        case .review: runPreview()
+        case .connect: connectRemote()
+        default: runForReal()
+        }
+    }
 
     private func execute(dry: Bool, done: @escaping (SetupSummary?, String?) -> Void) {
         let plan = makePlan(), root = rootURL, engine = engine
@@ -301,6 +429,7 @@ final class OnboardingModel: ObservableObject {
     /// Point the notch at the service that was just set up.
     private func applyToApp(_ summary: SetupSummary) {
         defaults.set(serviceRoot, forKey: Preferences.serviceRootKey)
+        defaults.set("token", forKey: Preferences.authModeKey)
         defaults.set(true, forKey: "swarmaEnabled")
         defaults.set(rootURL.appendingPathComponent(".local/notchtrader.json").path, forKey: "swarmaTokenPath")
         if let url = summary.serviceUrl, !url.isEmpty { defaults.set(url, forKey: "swarmaServiceURL") }

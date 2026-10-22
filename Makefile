@@ -54,7 +54,16 @@ DEV_SIGN := CODE_SIGN_IDENTITY="Apple Development" CODE_SIGN_STYLE=Manual \
 endif
 endif
 
-.PHONY: gen build test test-ci verify-deps run install clean
+.PHONY: gen build test test-ci verify-deps run install clean runtime
+
+# The app embeds the Swarmaa runtime built by the service repo (scripts/bundle.sh -> build/runtime).
+# Default checkout: /Users/mk/Projects/swarma-bundle (relative: ../../../../Projects/swarma-bundle from this worktree);
+# override with SWARMAA_RUNTIME_SRC=<dir containing RUNTIME_VERSION>. `make runtime` rebuilds it.
+SWARMAA_SERVICE_DIR ?= $(abspath $(CURDIR)/../../../../Projects/swarma-bundle)
+export SWARMAA_RUNTIME_SRC ?= $(SWARMAA_SERVICE_DIR)/build/runtime
+
+runtime:
+	cd $(SWARMAA_SERVICE_DIR) && bash scripts/bundle.sh
 
 gen:
 	xcodegen generate

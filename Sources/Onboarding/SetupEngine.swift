@@ -206,9 +206,12 @@ enum SetupEngineError: LocalizedError, Equatable {
 }
 
 struct NodeProcessRunner: SetupProcessRunning {
-    /// First of Homebrew, /usr/local, else whatever `env` finds.
-    static func nodeInvocation(exists: (String) -> Bool = { FileManager.default.isExecutableFile(atPath: $0) })
+    /// The bundled Node when the root is the app's runtime; else first of Homebrew, /usr/local, else whatever `env` finds.
+    static func nodeInvocation(root: URL? = nil, exists: (String) -> Bool = { FileManager.default.isExecutableFile(atPath: $0) })
         -> (executable: String, prefix: [String]) {
+        if let root, RuntimeInstaller.isBundledLayout(root) {
+            return (root.appendingPathComponent("node").path, [])
+        }
         for path in ["/opt/homebrew/bin/node", "/usr/local/bin/node"] where exists(path) {
             return (path, [])
         }
@@ -218,7 +221,7 @@ struct NodeProcessRunner: SetupProcessRunning {
     func run(arguments: [String], root: URL, stdin: Data?,
              onStdout: @escaping (String) -> Void,
              onStderr: @escaping (String) -> Void) throws -> Int32 {
-        let node = Self.nodeInvocation()
+        let node = Self.nodeInvocation(root: root)
         let process = Process()
         process.executableURL = URL(fileURLWithPath: node.executable)
         process.arguments = node.prefix + arguments
@@ -228,6 +231,7 @@ struct NodeProcessRunner: SetupProcessRunning {
         let base = environment["PATH"] ?? ""
         environment["PATH"] = (["/opt/homebrew/bin", "/usr/local/bin", "/usr/bin", "/bin"]
             + base.split(separator: ":").map(String.init)).joined(separator: ":")
+        if RuntimeInstaller.isBundledLayout(root) { environment["SWARMAA_PG_BIN"] = root.appendingPathComponent("pg/bin").path }
         process.environment = environment
 
         let out = Pipe(), err = Pipe(), input = Pipe()
@@ -272,13 +276,16 @@ struct NodeProcessRunner: SetupProcessRunning {
 struct SetupEngine {
     var runner: SetupProcessRunning = NodeProcessRunner()
 
-    private static let base = ["--import", "tsx", "scripts/setup.ts"]
+    /// `dist/scripts/setup.js` in the app's runtime, `--import tsx scripts/setup.ts` in a dev checkout.
+    static func base(root: URL) -> [String] {
+        RuntimeInstaller.isBundledLayout(root) ? ["dist/scripts/setup.js"] : ["--import", "tsx", "scripts/setup.ts"]
+    }
 
     /// Blocking: call off the main thread.
     func detect(root: URL) throws -> SetupDetection {
         var stdout: [String] = [], stderr: [String] = []
         let lock = NSLock()
-        let code = try runner.run(arguments: Self.base + ["--detect-json"], root: root, stdin: nil,
+        let code = try runner.run(arguments: Self.base(root: root) + ["--detect-json"], root: root, stdin: nil,
                                   onStdout: { lock.lock(); stdout.append($0); lock.unlock() },
                                   onStderr: { lock.lock(); stderr.append($0); lock.unlock() })
         lock.lock(); defer { lock.unlock() }
@@ -302,7 +309,7 @@ struct SetupEngine {
         var stderr: [String] = []
         let lock = NSLock()
         let code = try runner.run(
-            arguments: Self.base + ["--run-json"] + (dry ? ["--dry-run"] : []),
+            arguments: Self.base(root: root) + ["--run-json"] + (dry ? ["--dry-run"] : []),
             root: root, stdin: try plan.json(),
             onStdout: { line in
                 if let event = SetupEvent.parse(line: line) {
