@@ -60,12 +60,12 @@ struct RoutingPolicy: Codable, Equatable {
         fallback = (try? c.decodeIfPresent(String.self, forKey: .fallback)) ?? Self.fallbackMostHeadroom
     }
 
-    /// What "Reset to defaults" sets. ponytail: a client-side guess at the
-    /// service default; swap for a service-provided one if it ever exposes it.
+    /// "Reset to defaults" when the service doesn't send its `default_policy`
+    /// (older services). Mirrors the service's built-in default.
     static let standard = RoutingPolicy(providers: [
         Rule(provider: "claude", maxFiveHourPct: 90, maxWeeklyPct: 90),
-        Rule(provider: "codex", maxFiveHourPct: 90, maxWeeklyPct: 90),
-        Rule(provider: "antigravity", maxFiveHourPct: 90, maxWeeklyPct: 90, kinds: [RoutingKind.review.rawValue]),
+        Rule(provider: "codex", maxFiveHourPct: 95, maxWeeklyPct: 95),
+        Rule(provider: "antigravity", maxFiveHourPct: 95, maxWeeklyPct: 95, kinds: [RoutingKind.review.rawValue]),
     ])
 
     /// The exact `routing_set` arguments.
@@ -101,15 +101,18 @@ struct RoutingGetResult: Decodable, Equatable {
     let policy: RoutingPolicy
     let isDefault: Bool
     let updatedAt: Date?
-    private enum CodingKeys: String, CodingKey { case policy, isDefault = "is_default", updatedAt = "updated_at" }
-    init(policy: RoutingPolicy, isDefault: Bool = false, updatedAt: Date? = nil) {
-        self.policy = policy; self.isDefault = isDefault; self.updatedAt = updatedAt
+    /// The service's built-in default, used by "Reset to defaults" when present.
+    let defaultPolicy: RoutingPolicy?
+    private enum CodingKeys: String, CodingKey { case policy, isDefault = "is_default", updatedAt = "updated_at", defaultPolicy = "default_policy" }
+    init(policy: RoutingPolicy, isDefault: Bool = false, updatedAt: Date? = nil, defaultPolicy: RoutingPolicy? = nil) {
+        self.policy = policy; self.isDefault = isDefault; self.updatedAt = updatedAt; self.defaultPolicy = defaultPolicy
     }
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         policy = try c.decode(RoutingPolicy.self, forKey: .policy)
         isDefault = (try? c.decodeIfPresent(Bool.self, forKey: .isDefault)) ?? false
         updatedAt = (try? c.decodeIfPresent(Date.self, forKey: .updatedAt)) ?? nil
+        defaultPolicy = (try? c.decodeIfPresent(RoutingPolicy.self, forKey: .defaultPolicy)) ?? nil
     }
 }
 

@@ -46,6 +46,7 @@ final class RoutingEditorModel: ObservableObject {
     func load() async {
         do {
             let result = try await service.routingGet()
+            serviceDefault = result.defaultPolicy
             saved = result.policy
             draft = result.policy
             isDefault = result.isDefault
@@ -81,9 +82,12 @@ final class RoutingEditorModel: ObservableObject {
         }
     }
 
+    /// The service's own default policy, when it reports one.
+    private(set) var serviceDefault: RoutingPolicy?
+
     func resetToDefaults() {
         guard canEdit else { return }
-        draft = .standard
+        draft = serviceDefault ?? .standard
         message = nil
     }
 
