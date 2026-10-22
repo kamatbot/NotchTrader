@@ -56,6 +56,7 @@ struct RoutingSettingsView: View {
         VStack(alignment: .leading, spacing: 6) {
             previewLine(.review)
             previewLine(.research)
+            previewLine(.patch)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(12)
@@ -64,7 +65,11 @@ struct RoutingSettingsView: View {
     }
 
     private func previewLine(_ kind: RoutingKind) -> some View {
-        let next = kind == .review ? L10n.t("Next review") : L10n.t("Next research")
+        let next = switch kind {
+        case .review: L10n.t("Next review")
+        case .research: L10n.t("Next research")
+        case .patch: L10n.t("Next edit")
+        }
         return HStack(spacing: 6) {
             Text(verbatim: next + " →").foregroundStyle(.secondary)
             if let pick = model.preview(kind) {
@@ -176,9 +181,10 @@ private struct RuleRow: View {
                 HStack(spacing: 16) {
                     kindToggle(.review)
                     kindToggle(.research)
+                    kindToggle(.patch)
                 }
                 if rule.provider == "antigravity" {
-                    Text(L10n.t("Antigravity: reviews only recommended — it cannot run commands or reach outside the project"))
+                    Text(L10n.t("Antigravity: reviews and in-project edits — it cannot reach outside the project, so leave research off"))
                         .font(.callout).foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }

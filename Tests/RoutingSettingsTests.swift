@@ -7,7 +7,7 @@ final class RoutingSettingsTests: XCTestCase {
     private let policyJSON = """
     {"providers":[
       {"provider":"claude","enabled":true,"max_five_hour_pct":90,"max_weekly_pct":85,"kinds":["review","research"]},
-      {"provider":"codex","enabled":true,"max_five_hour_pct":100,"max_weekly_pct":100,"kinds":["review","research"]},
+      {"provider":"codex","enabled":true,"max_five_hour_pct":100,"max_weekly_pct":100,"kinds":["review","research","patch"]},
       {"provider":"antigravity","enabled":false,"max_five_hour_pct":50,"max_weekly_pct":60,"kinds":["review"]}],
      "fallback":"none"}
     """
@@ -149,7 +149,7 @@ final class RoutingSettingsTests: XCTestCase {
         XCTAssertNotNil(p.problem)               // research has nobody
         p.providers[2].enabled = true            // antigravity: review only
         XCTAssertNotNil(p.problem)
-        p.providers[1].kinds = ["review", "research"]
+        p.providers[1].kinds = ["review", "research", "patch"]
         XCTAssertNil(p.problem)
     }
 

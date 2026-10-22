@@ -2,8 +2,14 @@ import Foundation
 
 /// Which kind of work a rule may take.
 enum RoutingKind: String, CaseIterable, Equatable {
-    case review, research
-    var title: String { self == .review ? L10n.t("Review") : L10n.t("Research") }
+    case review, research, patch
+    var title: String {
+        switch self {
+        case .review: L10n.t("Review")
+        case .research: L10n.t("Research")
+        case .patch: L10n.t("Edit")
+        }
+    }
 }
 
 /// The routing policy the service keeps: array order is priority. Decoded
@@ -65,7 +71,7 @@ struct RoutingPolicy: Codable, Equatable {
     static let standard = RoutingPolicy(providers: [
         Rule(provider: "claude", maxFiveHourPct: 90, maxWeeklyPct: 90),
         Rule(provider: "codex", maxFiveHourPct: 95, maxWeeklyPct: 95),
-        Rule(provider: "antigravity", maxFiveHourPct: 95, maxWeeklyPct: 95, kinds: [RoutingKind.review.rawValue]),
+        Rule(provider: "antigravity", maxFiveHourPct: 95, maxWeeklyPct: 95, kinds: [RoutingKind.review.rawValue, RoutingKind.patch.rawValue]),
     ])
 
     /// The exact `routing_set` arguments.
@@ -91,7 +97,7 @@ struct RoutingPolicy: Codable, Equatable {
     var problem: String? {
         for kind in RoutingKind.allCases
         where !providers.contains(where: { $0.enabled && $0.allows(kind) }) {
-            return L10n.t("Turn on at least one service for \(kind.rawValue)s.")
+            return L10n.t("Turn on at least one service for \(kind.title.lowercased()) tasks.")
         }
         return nil
     }
