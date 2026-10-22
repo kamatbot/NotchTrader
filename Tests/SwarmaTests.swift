@@ -381,6 +381,18 @@ final class SwarmaTests: XCTestCase {
         XCTAssertTrue(providers.allSatisfy { $0.kind == .swarm })
     }
 
+    func testProjectsWithoutStartedSwarmsGetNoCell() throws {
+        let client = SwarmaClient(serviceURL: { "http://127.0.0.1:1" }, tokenPath: { "" },
+                                  transport: { _ in throw URLError(.cannotConnectToHost) })
+        let status = try SwarmaClient.decoder.decode(SwarmaStatus.self, from: Data(#"""
+            {"scopes":[{"scope":"project:idle","queued":0,"running":0,"blocked":0,"completed_24h":0,"failed_24h":0},
+                       {"scope":"project:busy","queued":1,"running":0,"blocked":0,"completed_24h":0,"failed_24h":0},
+                       {"scope":"project:done","queued":0,"running":0,"blocked":0,"completed_24h":2,"failed_24h":0}]}
+            """#.utf8))
+        XCTAssertEqual(SwarmaDirectory.providers(for: status, client: client).map(\.id),
+                       ["swarm:scope:project:busy", "swarm:scope:project:done"])
+    }
+
     // MARK: Store
 
     @MainActor

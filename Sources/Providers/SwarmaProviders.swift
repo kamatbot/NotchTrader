@@ -457,7 +457,9 @@ final class SwarmaDirectory {
                                       showsChats: Bool = true) -> [UsageProvider] {
         status.workers.map(\.name).sorted().map { SwarmAgentProvider(name: $0, client: client) }
             + (showsChats ? SwarmaCells.activeHarnesses(in: status).map { SwarmHarnessProvider(harness: $0, client: client) } : [])
-            + status.scopes.map(\.scope).sorted().map { SwarmScopeProvider(scope: $0, client: client) }
+            // Only swarms that have started: a project with no tasks gets no cell.
+            + status.scopes.filter { $0.queued + $0.running + $0.blocked + $0.completed24h + $0.failed24h > 0 }
+                .map(\.scope).sorted().map { SwarmScopeProvider(scope: $0, client: client) }
             + (status.lessonsPending > 0 ? [SwarmLessonsProvider(client: client)] : [])
     }
 
