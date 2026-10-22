@@ -164,8 +164,9 @@ final class CursorGeometry {
 
     func resetCardRect(event: UsageResetEvent) -> CGRect? {
         let index = model.resetAlertIndex(for: event) ?? 0
-        let cardAcross = model.edge.isVertical ? NotchLayout.cardWidth : UsageResetCard.cardHeight
-        let cardAlong = model.edge.isVertical ? UsageResetCard.cardHeight : NotchLayout.cardWidth
+        let height = UsageResetCard.height(for: event)
+        let cardAcross = model.edge.isVertical ? NotchLayout.cardWidth : height
+        let cardAlong = model.edge.isVertical ? height : NotchLayout.cardWidth
         let centre = model.cardAlong(centredOn: ringAlong(index: index), length: cardAlong)
         return placement.rect(
             along: centre - cardAlong / 2,

@@ -151,7 +151,7 @@ struct NotchRootView: View {
                             }
                         }
                     )
-                    .position(resetCardCentre(place, index: index))
+                    .position(resetCardCentre(place, index: index, event: resetEvent))
                     .transition(.opacity.combined(with: .offset(
                         x: model.edge.outward.x * Design.px(24),
                         y: model.edge.outward.y * Design.px(24)
@@ -723,9 +723,10 @@ struct NotchRootView: View {
                            across: model.tooltipInset + (NotchLayout.tailLength + across) / 2)
     }
 
-    private func resetCardCentre(_ place: NotchPlacement, index: Int) -> CGPoint {
-        let card = model.edge.isVertical ? NotchLayout.cardWidth : UsageResetCard.cardHeight
-        let cardAlong = model.edge.isVertical ? UsageResetCard.cardHeight : NotchLayout.cardWidth
+    private func resetCardCentre(_ place: NotchPlacement, index: Int, event: UsageResetEvent) -> CGPoint {
+        let height = UsageResetCard.height(for: event)
+        let card = model.edge.isVertical ? NotchLayout.cardWidth : height
+        let cardAlong = model.edge.isVertical ? height : NotchLayout.cardWidth
         return place.point(
             along: model.tooltipAlong(index: index, length: cardAlong),
             across: model.tooltipInset + (NotchLayout.tailLength + card) / 2

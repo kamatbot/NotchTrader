@@ -4,6 +4,7 @@ import SwiftUI
 /// project scopes get cells in the notch.
 struct SwarmaSettingsView: View {
     @ObservedObject var preferences: Preferences
+    var previewSwarmaUpdate: (() -> Void)? = nil
     @State private var tab = Tab.general
 
     private enum Tab { case general, routing }
@@ -38,6 +39,18 @@ struct SwarmaSettingsView: View {
                 Toggle("Show active chats", isOn: $preferences.swarmaShowsChats)
                     .disabled(!preferences.swarmaEnabled)
                 Text("One cell per service with a chat in the last 15 minutes: Claude Code, Codex, Antigravity, Grok or Dot. It goes when the chats do.")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Section("Updates") {
+                Toggle("Show swarm updates in the notch", isOn: $preferences.swarmaUpdates)
+                    .disabled(!preferences.swarmaEnabled)
+                if let previewSwarmaUpdate {
+                    Button("Preview") { previewSwarmaUpdate() }
+                }
+                Text("A silent card slides out of the notch when a task starts, finishes or needs you, like an agent chatting. No sound.")
                     .font(.callout)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)

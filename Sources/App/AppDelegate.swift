@@ -291,6 +291,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 .receive(on: RunLoop.main)
                 .sink { [weak swarma] in swarma?.showsChats = $0 }
                 .store(in: &cancellables)
+            preferences.$swarmaUpdates
+                .removeDuplicates()
+                .receive(on: RunLoop.main)
+                .sink { [weak swarma] in swarma?.announcesUpdates = $0 }
+                .store(in: &cancellables)
+            swarma.onUpdate = { [weak self] update, detail in self?.queueSwarmUpdate(SwarmaUpdates.notice(update, detail: detail)) }
             swarma.onRoutingChange = { [weak self] change in self?.announceRouting(change) }
             // A new address or token file is read on the next request; this
             // only makes that request happen now rather than on the timer.
@@ -534,6 +540,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 },
                 previewSessionLimitAlert: { [weak self] in
                     self?.previewSessionLimitAlert()
+                },
+                previewSwarmaUpdate: { [weak self] in
+                    self?.previewSwarmaUpdate()
                 },
                 previewWeeklyLimitAlert: { [weak self] in
                     self?.previewWeeklyLimitAlert()
@@ -1308,6 +1317,38 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if !fleet.showResetAlert(notice, duration: 6.0) {
             ThresholdAlerts.deliver(alert)
         }
+    }
+
+    /// Swarm updates show one after another, silently: each card gets its
+    /// full 6 s before the next slides out, like messages arriving in a chat.
+    private var swarmUpdateQueue: [UsageResetEvent] = []
+    private var swarmUpdateBusy = false
+
+    @MainActor
+    private func queueSwarmUpdate(_ notice: UsageResetEvent) {
+        swarmUpdateQueue.append(notice)
+        drainSwarmUpdates()
+    }
+
+    @MainActor
+    private func drainSwarmUpdates() {
+        guard !swarmUpdateBusy, !swarmUpdateQueue.isEmpty, let fleet = notchFleet else { return }
+        let next = swarmUpdateQueue.removeFirst()
+        // A hidden notch has nowhere to show it; these are never worth a banner.
+        guard fleet.showResetAlert(next, duration: 6.0) else { return drainSwarmUpdates() }
+        swarmUpdateBusy = true
+        DispatchQueue.main.asyncAfter(deadline: .now() + 6.4) { [weak self] in
+            self?.swarmUpdateBusy = false
+            self?.drainSwarmUpdates()
+        }
+    }
+
+    @MainActor
+    private func previewSwarmaUpdate() {
+        let run = SwarmaUpdate(kind: .finished, taskID: "demo", provider: "claude",
+                               objective: "Add the hover card", scope: "project:demo", taskKind: "patch", branch: "swarm/hover-card")
+        queueSwarmUpdate(SwarmaUpdates.notice(run, detail: SwarmaTaskDetail(
+            answer: "## Hover card\nAdded the activity card to the worker cells and wired its height.", reason: nil)))
     }
 
     /// Swarmaa moved new work to another vendor. Same two forms as a limit
