@@ -83,9 +83,10 @@ final class LessonReviewTests: XCTestCase {
         XCTAssertEqual(junk.lessonsPending, 0)
     }
 
-    func testCitedTurnsSkipOutOfRange() {
+    func testCitedTurnsAreOneBasedAndSkipOutOfRange() {
         let session = SwarmaSessionDetail(id: "s", turns: [.init(role: "user", text: "a"), .init(role: "assistant", text: "b")])
-        XCTAssertEqual(session.cited([1, 5, 0]).map(\.index), [1, 0])
+        XCTAssertEqual(session.cited([2, 5, 0, 1]).map(\.index), [2, 1])
+        XCTAssertEqual(session.cited([2, 1]).map(\.turn.text), ["b", "a"])
     }
 
     // MARK: Requests
