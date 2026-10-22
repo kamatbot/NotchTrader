@@ -399,6 +399,9 @@ struct ProviderSnapshot: Identifiable, Equatable {
     /// Running Swarma tasks this cell can cancel from its context menu.
     var swarmTasks: [SwarmaCancelTarget] = []
 
+    /// What an agent or project cell shows on hover; nil keeps the generic card.
+    var swarmActivity: SwarmaActivity?
+
     /// The number on the cell: the provider's declared primary window — for
     /// Claude, the current session.
     ///

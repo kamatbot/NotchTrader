@@ -91,6 +91,7 @@ enum SwarmaCells {
         )
         var snapshot = cell(id: agentID(name), name: role, glyph: glyph(forProvider: vendor), window: window)
         snapshot.swarmTasks = targets
+        snapshot.swarmActivity = SwarmaActivity.agent(worker, in: status)
         if let reason = status.routing?.reason, !reason.isEmpty {
             snapshot.windows.append(LimitWindow(id: "routing", label: L10n.t("Routing"), detail: reason))
         }
@@ -203,6 +204,7 @@ enum SwarmaCells {
         let now = LimitWindow(id: "now", label: L10n.t("Now"), used: scope.running, detail: counts)
         var snapshot = cell(id: scopeID(name), name: label, glyph: .third, window: primary)
         snapshot.windows.append(now)
+        snapshot.swarmActivity = SwarmaActivity.scope(scope, in: status)
         return snapshot
     }
 

@@ -390,6 +390,31 @@ enum NotchLayout {
             + blockSpacing + 2 * chart + usageDetailChartGap
     }
 
+    // The Swarmaa activity card: fixed-height rows, so its height is arithmetic.
+    static let activityRowHeight = cardBodyLineHeight + Design.px(10)
+    static let activityRowGap = Design.px(12)
+    static let activityLabelGap = Design.px(10)
+    static let activityPillPad = Design.px(8)
+
+    /// Header, then a titled section per part that has content. Running always
+    /// has one — a quiet line when nothing is — and lists are capped, so it
+    /// cannot outgrow `maxCardHeight`.
+    static func activityCardHeight(_ a: SwarmaActivity) -> CGFloat {
+        func rows(_ n: Int) -> CGFloat { CGFloat(n) * activityRowHeight + CGFloat(max(0, n - 1)) * activityRowGap }
+        func section(_ content: CGFloat) -> CGFloat { blockSpacing + cardBodyLineHeight + activityLabelGap + content }
+        var height = 2 * cardPadding + max(glyphSize, cardTitleLineHeight) + headerToBlock
+        let shown = a.shownRunning.count
+        height += cardBodyLineHeight + activityLabelGap
+            + (shown == 0 ? activityRowHeight : rows(shown) + (a.hiddenRunning > 0 ? activityRowGap + cardBodyLineHeight : 0))
+        if !a.quotas.isEmpty { height += section(rows(a.quotas.count)) }
+        if !a.routes.isEmpty {
+            height += section(activityRowHeight + 2 * activityPillPad
+                              + (a.routeReason != nil ? activityRowGap + cardBodyLineHeight : 0))
+        }
+        if !a.landed.isEmpty { height += section(rows(a.landed.count)) }
+        return height
+    }
+
     static func cardHeight(windowCount: Int, groupCount: Int = 0,
                            moneyWindowCount: Int = 0, moneyResetCount: Int = 0,
                            moneyProjectionCount: Int = 0,
@@ -405,7 +430,9 @@ enum NotchLayout {
                            localLedgerRows: Int = 0,
                            compactRowCount: Int = 0,
                            showsDeepSeekPricing: Bool = true,
-                           costRows: Int = 0) -> CGFloat {
+                           costRows: Int = 0,
+                           swarmActivity: SwarmaActivity? = nil) -> CGFloat {
+        if let swarmActivity { return activityCardHeight(swarmActivity) }
         let header = max(glyphSize, cardTitleLineHeight)
             + (hasPlan ? cardBodyLineHeight : 0)
         var height = 2 * cardPadding + header
