@@ -4,8 +4,28 @@ import SwiftUI
 /// project scopes get cells in the notch.
 struct SwarmaSettingsView: View {
     @ObservedObject var preferences: Preferences
+    @State private var tab = Tab.general
+
+    private enum Tab { case general, routing }
 
     var body: some View {
+        VStack(spacing: 0) {
+            Picker("", selection: $tab) {
+                Text(L10n.t("General")).tag(Tab.general)
+                Text(L10n.t("Routing")).tag(Tab.routing)
+            }
+            .pickerStyle(.segmented).labelsHidden()
+            .frame(maxWidth: 240)
+            .padding(.vertical, 10)
+            .accessibilityLabel(L10n.t("Swarmaa settings section"))
+            switch tab {
+            case .general: general
+            case .routing: RoutingSettingsView()
+            }
+        }
+    }
+
+    private var general: some View {
         Form {
             Section("Swarmaa") {
                 Toggle("Show Swarmaa agents and swarms", isOn: $preferences.swarmaEnabled)
