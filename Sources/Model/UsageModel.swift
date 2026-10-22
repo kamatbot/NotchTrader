@@ -402,6 +402,9 @@ struct ProviderSnapshot: Identifiable, Equatable {
     /// Live OpsOdds score, market quote, and actionable trade levels.
     var opsOddsScore: OpsOddsScore? = nil
 
+    /// Running Swarma tasks this cell can cancel from its context menu.
+    var swarmTasks: [SwarmaCancelTarget] = []
+
     /// The number on the cell: the provider's declared primary window — for
     /// Claude, the current session.
     ///

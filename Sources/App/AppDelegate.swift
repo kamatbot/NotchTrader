@@ -94,6 +94,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var claudeProviders: [ClaudeOAuthProvider] = []
     /// MiniMax Platform sign-in sheet. Not a UsageProvider — that is MiniMaxProvider.
     private var miniMaxWeb: WebSessionProvider?
+    /// Decides which Swarma agent and swarm cells exist; see `SwarmaDirectory`.
+    private var swarmaDirectory: SwarmaDirectory?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         // Set here, not in the Info.plist: this call is applied at launch and
@@ -183,13 +185,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             let remoteProviders: [UsageProvider] = preferences.remoteHosts
                 .filter { $0.isEnabled && $0.isConfigured }
                 .map { $0.makeProvider() }
-            let tickerProviders: [UsageProvider] = preferences.configuredTickers.map { ticker in
+            let tickerProviders: [UsageProvider] = Preferences.showsTickers(
+                swarmaEnabled: preferences.swarmaEnabled,
+                replacesTickers: preferences.swarmaReplacesTickers
+            ) ? preferences.configuredTickers.map { ticker in
                 StockTickerProvider(
                     ticker: ticker,
                     getDeviceId: { [weak preferences] in preferences?.opsOddsDeviceId },
                     getBaseURL: { [weak preferences] in preferences?.opsOddsBaseURL ?? "https://www.opsodds.com" }
                 )
-            }
+            } : []
             let allProviders: [UsageProvider] = tickerProviders
                 + claudeProviders
                 + [CursorLocalProvider()]
@@ -253,7 +258,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     store?.registerRemoteProviders(providers)
                 }
                 .store(in: &cancellables)
+            // Swarma hides the tickers while it is on and asked to; the values
+            // come from the publishers, which fire before the property changes.
             preferences.$configuredTickers
+                .combineLatest(preferences.$swarmaEnabled, preferences.$swarmaReplacesTickers)
+                .map { tickers, swarma, replaces in
+                    Preferences.showsTickers(swarmaEnabled: swarma, replacesTickers: replaces) ? tickers : []
+                }
                 .removeDuplicates()
                 .receive(on: RunLoop.main)
                 .sink { [weak store, weak preferences] tickers in
@@ -271,6 +282,31 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     store.registerTickerProviders(providers)
                 }
                 .store(in: &cancellables)
+
+            let swarma = SwarmaDirectory(store: store)
+            self.swarmaDirectory = swarma
+            preferences.$swarmaEnabled
+                .removeDuplicates()
+                .receive(on: RunLoop.main)
+                .sink { [weak swarma] in swarma?.setEnabled($0) }
+                .store(in: &cancellables)
+            preferences.$swarmaShowsChats
+                .removeDuplicates()
+                .receive(on: RunLoop.main)
+                .sink { [weak swarma] in swarma?.showsChats = $0 }
+                .store(in: &cancellables)
+            swarma.onRoutingChange = { [weak self] change in self?.announceRouting(change) }
+            // A new address or token file is read on the next request; this
+            // only makes that request happen now rather than on the timer.
+            preferences.$swarmaServiceURL
+                .combineLatest(preferences.$swarmaTokenPath)
+                .dropFirst()
+                .debounce(for: .milliseconds(600), scheduler: RunLoop.main)
+                .sink { [weak swarma] _ in swarma?.sync() }
+                .store(in: &cancellables)
+            fleet.onCancelSwarmTask = { [weak swarma] target in
+                Task { await swarma?.cancel(target) }
+            }
 
             let updateMarketsOn = { [weak store, weak preferences] in
                 guard let preferences, let store else { return }
@@ -940,7 +976,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 .sink { [weak statusItem] snapshots, paced in
                     let snapshots = DailyPace.apply(to: snapshots, enabled: paced)
                     statusItem?.snapshots = snapshots
-                    let usageSnapshots = snapshots.filter { $0.kind != .stockTicker }
+                    let usageSnapshots = snapshots.filter { $0.kind != .stockTicker && $0.kind != .swarm }
                     notifier.observe(usageSnapshots)
                     resetWatcher.observe(usageSnapshots)
                     limitWatcher.observe(usageSnapshots)
@@ -1296,6 +1332,29 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if !fleet.showResetAlert(notice, duration: 6.0) {
             ThresholdAlerts.deliver(alert)
         }
+    }
+
+    /// Swarmaa moved new work to another vendor. Same two forms as a limit
+    /// alert: the notch's card, or a banner on the Mac channel and wherever the
+    /// notch cannot show one. It follows the limit-reached switches because a
+    /// switch is what a spent limit causes; with those off it stays quiet.
+    @MainActor
+    private func announceRouting(_ change: SwarmaRoutingChange) {
+        guard let preferences,
+              preferences.announceSessionLimitReached || preferences.announceWeeklyLimitReached else { return }
+        let post = { ChannelNotifications.post(title: change.title, body: change.body, thread: "swarma.routing") }
+        guard preferences.notificationChannel == .notch, let fleet = notchFleet else {
+            post()
+            return
+        }
+        var notice = UsageResetEvent(providerID: SwarmaCells.agentPrefix + change.to,
+                                     providerName: SwarmaCells.vendorName(change.to), windowLabel: "",
+                                     glyph: SwarmaCells.glyph(forProvider: change.to),
+                                     previousFraction: 0, currentFraction: 0, resetsAt: nil)
+        notice.noticeTitle = change.title
+        notice.noticeSubtitle = change.body
+        notice.noticeStatus = ""
+        if !fleet.showResetAlert(notice, duration: 6.0) { post() }
     }
 
     /// The test from Settings, on whichever channel is chosen.

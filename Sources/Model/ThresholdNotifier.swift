@@ -42,7 +42,7 @@ final class ThresholdNotifier {
     }
 
     private func observe(_ snapshot: ProviderSnapshot) {
-        guard snapshot.kind != .stockTicker else { return }
+        guard snapshot.kind != .stockTicker, snapshot.kind != .swarm else { return }
         // An archived reading is not a baseline. At launch the store publishes
         // what it remembered from the last run, marked stale, and the first
         // live fetch follows seconds later; measured against the archive it

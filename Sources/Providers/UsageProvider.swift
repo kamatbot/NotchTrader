@@ -4,6 +4,8 @@ enum ProviderKind: Equatable {
     case usage
     case localRuntime
     case stockTicker
+    /// A Swarma agent or project scope: cells whose set comes from the service.
+    case swarm
 }
 
 /// How recent a reading has to be to answer a fetch.

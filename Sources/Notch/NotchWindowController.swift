@@ -34,6 +34,8 @@ final class NotchWindowController {
     var onRefreshProvider: ((String) async -> Void)?
     /// Open the settings window, asked for by clicking the handle.
     var onOpenSettings: (() -> Void)?
+    /// Cancel a running Swarma task, asked for from a cell's context menu.
+    var onCancelSwarmTask: ((SwarmaCancelTarget) -> Void)?
     /// An ⌥-drag on the pill settled at a new `model.alongOffset`. The
     /// controller only holds the live value; persisting it per edge is
     /// Preferences' job, the same division `apply(edge:)` already keeps.
@@ -2079,6 +2081,25 @@ final class NotchWindowController {
             }
         }
 
+        // The same per-cell hook the ticker items use: only the cell under the
+        // pointer offers its running tasks.
+        if let hovered = model.hoveredIndex, model.snapshots.indices.contains(hovered),
+           model.snapshots[hovered].kind == .swarm {
+            let tasks = model.snapshots[hovered].swarmTasks
+            if !tasks.isEmpty { menu.addItem(.separator()) }
+            for task in tasks {
+                let cancel = NSMenuItem(
+                    title: L10n.t("Cancel task: \(task.title)…"),
+                    action: #selector(MenuActions.cancelSwarmTask(_:)),
+                    keyEquivalent: ""
+                )
+                cancel.target = menuActions
+                cancel.representedObject = task
+                cancel.isEnabled = true
+                menu.addItem(cancel)
+            }
+        }
+
         // The dock style draws no settings button, so this is the way to
         // Settings from the notch itself there.
         let settings = NSMenuItem(
@@ -2102,7 +2123,8 @@ final class NotchWindowController {
         refresh: { [weak self] in self?.onRefresh?() },
         signIn: { [weak self] index in self?.signInItems[safe: index]?.action() },
         togglePinned: { [weak self] in self?.togglePinned() },
-        openSettings: { [weak self] in self?.onOpenSettings?() }
+        openSettings: { [weak self] in self?.onOpenSettings?() },
+        cancelSwarmTask: { [weak self] in self?.onCancelSwarmTask?($0) }
     )
 }
 
@@ -2114,22 +2136,30 @@ final class MenuActions: NSObject {
     private let signIn: (Int) -> Void
     private let pin: () -> Void
     private let settings: () -> Void
+    private let cancelSwarm: (SwarmaCancelTarget) -> Void
 
     init(
         refresh: @escaping () -> Void,
         signIn: @escaping (Int) -> Void,
         togglePinned: @escaping () -> Void,
-        openSettings: @escaping () -> Void
+        openSettings: @escaping () -> Void,
+        cancelSwarmTask: @escaping (SwarmaCancelTarget) -> Void
     ) {
         self.refresh = refresh
         self.signIn = signIn
         self.pin = togglePinned
         self.settings = openSettings
+        self.cancelSwarm = cancelSwarmTask
     }
 
     @objc func refreshNow(_ sender: Any?) { refresh() }
     @objc func togglePinned(_ sender: Any?) { pin() }
     @objc func openSettings(_ sender: Any?) { settings() }
+
+    @objc func cancelSwarmTask(_ sender: Any?) {
+        guard let item = sender as? NSMenuItem, let task = item.representedObject as? SwarmaCancelTarget else { return }
+        cancelSwarm(task)
+    }
 
     @objc func openFidelityDirect(_ sender: Any?) {
         guard let item = sender as? NSMenuItem, let ticker = item.representedObject as? String else { return }

@@ -108,6 +108,33 @@ final class Preferences: ObservableObject {
         didSet { defaults.set(opsOddsRefreshInterval, forKey: Keys.opsOddsRefreshInterval) }
     }
 
+    /// Whether Swarma's agents and swarms get cells. On by default only where
+    /// its token file already exists, so a Mac without Swarma sees nothing new.
+    @Published var swarmaEnabled: Bool {
+        didSet { defaults.set(swarmaEnabled, forKey: Keys.swarmaEnabled) }
+    }
+
+    /// Where the Swarma service listens.
+    @Published var swarmaServiceURL: String {
+        didSet { defaults.set(swarmaServiceURL, forKey: Keys.swarmaServiceURL) }
+    }
+
+    /// The JSON file (`{"token": "…"}`) holding Swarma's bearer token. Only the
+    /// path is stored; the token itself is never copied out of that file.
+    @Published var swarmaTokenPath: String {
+        didSet { defaults.set(swarmaTokenPath, forKey: Keys.swarmaTokenPath) }
+    }
+
+    /// Whether each harness with a chat in progress gets a cell.
+    @Published var swarmaShowsChats: Bool {
+        didSet { defaults.set(swarmaShowsChats, forKey: Keys.swarmaShowsChats) }
+    }
+
+    /// While Swarma is on, hide the stock tickers. Does nothing with Swarma off.
+    @Published var swarmaReplacesTickers: Bool {
+        didSet { defaults.set(swarmaReplacesTickers, forKey: Keys.swarmaReplacesTickers) }
+    }
+
     /// User-configured custom OpenAI-compatible endpoints.
     @Published var customEndpoints: [CustomEndpoint] {
         didSet {
@@ -639,6 +666,11 @@ final class Preferences: ObservableObject {
         static let opsOddsBaseURL = "opsOddsBaseURL"
         static let opsOddsDeviceId = "opsOddsDeviceId"
         static let opsOddsRefreshInterval = "opsOddsRefreshInterval"
+        static let swarmaEnabled = "swarmaEnabled"
+        static let swarmaServiceURL = "swarmaServiceURL"
+        static let swarmaTokenPath = "swarmaTokenPath"
+        static let swarmaReplacesTickers = "swarmaReplacesTickers"
+        static let swarmaShowsChats = "swarmaShowsChats"
         static let introducedOllama = "introducedOllama"
         static let migratedOllamaID = "migratedOllamaLocalID"
         static let ollamaMetricsEnabled = "ollamaMetricsEnabled"
@@ -858,6 +890,43 @@ final class Preferences: ObservableObject {
     ) -> Double {
         let val = defaults.double(forKey: Keys.opsOddsRefreshInterval)
         return val > 0 ? val : 15.0
+    }
+
+    nonisolated static let defaultSwarmaServiceURL = "http://127.0.0.1:8787"
+    nonisolated static let defaultSwarmaTokenPath = "~/Projects/swarma/.local/notchtrader.json"
+
+    /// The Swarma client is an actor and asks for these on every request, so
+    /// they read the store, not the `@Published` object — as custom endpoints do.
+    nonisolated static func storedSwarmaServiceURL(defaults: UserDefaults = .standard) -> String {
+        let value = defaults.string(forKey: Keys.swarmaServiceURL)?.trimmingCharacters(in: .whitespacesAndNewlines)
+        return (value?.isEmpty ?? true) ? defaultSwarmaServiceURL : value!
+    }
+
+    nonisolated static func storedSwarmaTokenPath(defaults: UserDefaults = .standard) -> String {
+        let value = defaults.string(forKey: Keys.swarmaTokenPath)?.trimmingCharacters(in: .whitespacesAndNewlines)
+        return (value?.isEmpty ?? true) ? defaultSwarmaTokenPath : value!
+    }
+
+    nonisolated static func storedSwarmaEnabled(defaults: UserDefaults = .standard) -> Bool {
+        if defaults.object(forKey: Keys.swarmaEnabled) != nil {
+            return defaults.bool(forKey: Keys.swarmaEnabled)
+        }
+        let path = (storedSwarmaTokenPath(defaults: defaults) as NSString).expandingTildeInPath
+        return FileManager.default.fileExists(atPath: path)
+    }
+
+    nonisolated static func storedSwarmaShowsChats(defaults: UserDefaults = .standard) -> Bool {
+        defaults.object(forKey: Keys.swarmaShowsChats) as? Bool ?? true
+    }
+
+    nonisolated static func storedSwarmaReplacesTickers(defaults: UserDefaults = .standard) -> Bool {
+        defaults.object(forKey: Keys.swarmaReplacesTickers) as? Bool ?? true
+    }
+
+    /// Whether the stock tickers are on the notch: always, unless Swarma is on
+    /// and has been asked to take their place.
+    nonisolated static func showsTickers(swarmaEnabled: Bool, replacesTickers: Bool) -> Bool {
+        !(swarmaEnabled && replacesTickers)
     }
 
     /// Custom endpoint providers are actors and ask for this on every fetch, and
@@ -1183,6 +1252,11 @@ final class Preferences: ObservableObject {
         self.opsOddsBaseURL = Self.storedOpsOddsBaseURL(defaults: defaults)
         self.opsOddsDeviceId = defaults.string(forKey: Keys.opsOddsDeviceId) ?? ""
         self.opsOddsRefreshInterval = Self.storedOpsOddsRefreshInterval(defaults: defaults)
+        self.swarmaEnabled = Self.storedSwarmaEnabled(defaults: defaults)
+        self.swarmaServiceURL = Self.storedSwarmaServiceURL(defaults: defaults)
+        self.swarmaTokenPath = Self.storedSwarmaTokenPath(defaults: defaults)
+        self.swarmaReplacesTickers = Self.storedSwarmaReplacesTickers(defaults: defaults)
+        self.swarmaShowsChats = Self.storedSwarmaShowsChats(defaults: defaults)
         // Read from the system rather than from our own store: the user can turn
         // this off in System Settings, and a remembered `true` would then be a lie.
         self.launchAtLogin = Self.isRegisteredForLogin
@@ -1312,7 +1386,7 @@ final class Preferences: ObservableObject {
     /// Claude and Codex stay on for a first install and for a newly discovered
     /// profile. Everyone else starts off.
     nonisolated static func isDefaultOnFamily(_ providerID: String) -> Bool {
-        if providerID.hasPrefix("ticker:") { return true }
+        if providerID.hasPrefix("ticker:") || providerID.hasPrefix("swarm:") { return true }
         return ClaudeProfile.isClaude(providerID: providerID)
             || CodexProfile.isCodex(providerID: providerID)
     }
@@ -1324,7 +1398,7 @@ final class Preferences: ObservableObject {
     }
 
     func isConnected(_ providerID: String) -> Bool {
-        if providerID.hasPrefix("ticker:") {
+        if providerID.hasPrefix("ticker:") || providerID.hasPrefix("swarm:") {
             return true
         }
         if Self.isModelCell(providerID) {
