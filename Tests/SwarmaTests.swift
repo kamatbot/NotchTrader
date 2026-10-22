@@ -228,13 +228,8 @@ final class SwarmaTests: XCTestCase {
     // MARK: Bands
 
     func testAgentBands() {
-        XCTAssertEqual(SwarmaCells.agentBand(headroom: 62.5, live: false), .critical, "offline is red whatever the quota")
-        XCTAssertEqual(SwarmaCells.agentBand(headroom: nil, live: false), .critical)
-        XCTAssertEqual(SwarmaCells.agentBand(headroom: 62.5, live: true), .ample)
-        XCTAssertEqual(SwarmaCells.agentBand(headroom: 15, live: true), .ample)
-        XCTAssertEqual(SwarmaCells.agentBand(headroom: 14.9, live: true), .critical)
-        XCTAssertEqual(SwarmaCells.agentBand(headroom: 0, live: true), .exhausted)
-        XCTAssertEqual(SwarmaCells.agentBand(headroom: nil, live: true), .ample, "no reading is not a warning")
+        XCTAssertEqual(SwarmaCells.agentBand(live: false), .critical)
+        XCTAssertEqual(SwarmaCells.agentBand(live: true), .ample)
     }
 
     func testScopeBands() {
@@ -260,13 +255,13 @@ final class SwarmaTests: XCTestCase {
         XCTAssertEqual(cell.status, .ok)
 
         let ring = try XCTUnwrap(cell.headline)
-        XCTAssertEqual(try XCTUnwrap(ring.usedFraction), 0.375, accuracy: 0.0001)
-        XCTAssertEqual(ring.usedText, "62% left")
+        XCTAssertEqual(cell.displayName, "Claude worker")
+        XCTAssertNil(ring.usedFraction, "usage belongs to the native Claude cell")
+        XCTAssertNil(ring.resetsAt)
+        XCTAssertEqual(ring.usedText, "running")
         XCTAssertEqual(ring.detail, "Review the diff")
         XCTAssertEqual(ring.bandOverride, .ample)
-        XCTAssertEqual(ring.resetsAt, ISO8601DateFormatter().date(from: "2026-10-22T04:00:00Z"),
-                       "the earliest window reset, not the weekly one")
-        XCTAssertEqual(cell.headlineText, "62% left")
+        XCTAssertEqual(cell.headlineText, "running")
         XCTAssertEqual(cell.swarmTasks, [SwarmaCancelTarget(
             taskID: "11111111-1111-1111-1111-111111111111", version: 3, title: "Review the diff")])
     }
@@ -285,15 +280,17 @@ final class SwarmaTests: XCTestCase {
         XCTAssertEqual(cell.headline?.detail, "offline")
         XCTAssertEqual(cell.headline?.usedText, "offline")
         XCTAssertEqual(cell.headline?.bandOverride, .critical)
-        XCTAssertNil(cell.headline?.usedFraction, "the codex quota could not be read, so there is no ring")
+        XCTAssertNil(cell.headline?.usedFraction)
+        XCTAssertEqual(cell.displayName, "Codex worker")
     }
 
-    func testLowQuotaAgentTurnsCritical() throws {
+    func testLowQuotaDoesNotChangeAgentCell() throws {
         var status = try status()
         status.usage[0] = .init(provider: "claude", ok: true, headroom: 8, windows: [], plan: nil, error: nil, fetchedAt: nil)
         let cell = SwarmaCells.agentSnapshot(name: "worker-claude", in: status)
-        XCTAssertEqual(cell.headline?.usedText, "8% left")
-        XCTAssertEqual(cell.headline?.bandOverride, .critical)
+        XCTAssertEqual(cell.headline?.usedText, "running")
+        XCTAssertEqual(cell.headline?.bandOverride, .ample)
+        XCTAssertNil(cell.headline?.usedFraction)
         XCTAssertNil(cell.headline?.resetsAt)
     }
 
@@ -348,7 +345,7 @@ final class SwarmaTests: XCTestCase {
         let client = try client(stub)
         let agent = try await SwarmAgentProvider(name: "worker-claude", client: client).fetchSnapshot()
         let scope = try await SwarmScopeProvider(scope: "project:demo", client: client).fetchSnapshot()
-        XCTAssertEqual(agent.headline?.usedText, "62% left")
+        XCTAssertEqual(agent.headline?.usedText, "running")
         XCTAssertEqual(scope.headline?.detail, "3 done today")
         XCTAssertEqual(stub.requests.count, 1)
     }
@@ -398,7 +395,7 @@ final class SwarmaTests: XCTestCase {
                                       SwarmScopeProvider(scope: "project:demo", client: client)])
         try await Task.sleep(nanoseconds: 400_000_000)
         XCTAssertEqual(Set(store.notchSnapshots.map(\.id)), ["swarm:agent:worker-claude", "swarm:scope:project:demo"])
-        XCTAssertEqual(store.notchSnapshots.first { $0.id == "swarm:agent:worker-claude" }?.headline?.usedText, "62% left")
+        XCTAssertEqual(store.notchSnapshots.first { $0.id == "swarm:agent:worker-claude" }?.headline?.usedText, "running")
 
         store.registerSwarmProviders([SwarmScopeProvider(scope: "project:demo", client: client)])
         XCTAssertEqual(store.notchSnapshots.map(\.id), ["swarm:scope:project:demo"])

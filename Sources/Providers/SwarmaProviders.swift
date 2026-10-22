@@ -37,19 +37,10 @@ enum SwarmaCells {
         }
     }
 
-    /// Offline is red whatever the quota says. Below 15% left the app's own
-    /// banding decides, which at its default thresholds is critical, and
-    /// exhausted at zero; a quota with room, or none read, is ample — the cell
-    /// is about the agent, not a verdict on a number nobody has.
-    static func agentBand(headroom: Double?, live: Bool) -> UsageBand {
-        guard live else { return .critical }
-        guard let headroom, headroom < 15 else { return .ample }
-        return UsageBand.band(for: usedFraction(headroom: headroom))
-    }
-
-    static func usedFraction(headroom: Double) -> Double {
-        1 - min(max(headroom, 0), 100) / 100
-    }
+    /// Agent cells report status, not quota: the native provider cells own
+    /// usage, so a second ring here would show the same service twice.
+    /// Offline is red; running and idle are both fine.
+    static func agentBand(live: Bool) -> UsageBand { live ? .ample : .critical }
 
     // MARK: Agents
 
@@ -58,13 +49,7 @@ enum SwarmaCells {
             return unavailable(id: agentID(name), name: name, glyph: .third, detail: L10n.t("offline"))
         }
 
-        // The tightest quota among the worker's vendors is the one that stops
-        // it, so that is the ring.
-        let readings = status.usage.filter { worker.providers.contains($0.provider) && $0.ok && $0.headroom != nil }
-        let tightest = readings.min { ($0.headroom ?? 100) < ($1.headroom ?? 100) }
-        let headroom = tightest?.headroom
-        let resetsAt = tightest?.windows.compactMap(\.resetsAt).min()
-        let vendor = tightest?.provider ?? worker.providers.first
+        let vendor = worker.providers.first
 
         var targets: [SwarmaCancelTarget] = []
         for task in worker.running {
@@ -87,31 +72,23 @@ enum SwarmaCells {
                 ?? task.scope.map { L10n.t("running in \(scopeLabel($0))") }
                 ?? L10n.t("running")
         } else if isNextUp {
-            detail = L10n.t("Next tasks → here") + " · " + L10n.t("idle")
+            detail = L10n.t("Next tasks → here")
         } else {
             detail = L10n.t("idle")
         }
 
-        let usedText: String
-        if !worker.live {
-            usedText = L10n.t("offline")
-        } else if let headroom {
-            usedText = L10n.t("\(Percent.halves(for: usedFraction(headroom: headroom)).left)% left")
-        } else {
-            usedText = L10n.t("no quota")
-        }
+        let usedText = !worker.live ? L10n.t("offline") : worker.running.isEmpty ? L10n.t("idle") : L10n.t("running")
+        let role = L10n.t("\(vendor.map(vendorName) ?? name) worker")
 
         let window = LimitWindow(
             id: "primary",
-            label: vendor.map { $0.prefix(1).uppercased() + $0.dropFirst() } ?? name,
-            usedFraction: headroom.map { usedFraction(headroom: $0) },
+            label: role,
             usedText: usedText,
             detail: detail,
-            resetsAt: resetsAt,
-            bandOverride: agentBand(headroom: headroom, live: worker.live),
+            bandOverride: agentBand(live: worker.live),
             prefersUsedText: true
         )
-        var snapshot = cell(id: agentID(name), name: name, glyph: glyph(forProvider: vendor), window: window)
+        var snapshot = cell(id: agentID(name), name: role, glyph: glyph(forProvider: vendor), window: window)
         snapshot.swarmTasks = targets
         if let reason = status.routing?.reason, !reason.isEmpty {
             snapshot.windows.append(LimitWindow(id: "routing", label: L10n.t("Routing"), detail: reason))

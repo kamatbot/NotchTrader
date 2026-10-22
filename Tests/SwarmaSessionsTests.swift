@@ -160,7 +160,7 @@ final class SwarmaSessionsTests: XCTestCase {
     func testRecommendedAgentSaysNextTasksWhileIdle() throws {
         let status = try full()
         let codex = SwarmaCells.agentSnapshot(name: "worker-codex", in: status)
-        XCTAssertEqual(codex.headline?.detail, "Next tasks → here · idle")
+        XCTAssertEqual(codex.headline?.detail, "Next tasks → here")
         let claude = SwarmaCells.agentSnapshot(name: "worker-claude", in: status)
         XCTAssertEqual(claude.headline?.detail, "idle")
     }
