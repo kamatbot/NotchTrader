@@ -69,7 +69,7 @@ struct LMStudioSettingsRow: View {
                 LMStudioMetricsStatus(metrics: metrics)
             }
         }
-        .font(.caption)
+        .font(.callout)
         .fixedSize(horizontal: false, vertical: true)
         .onAppear { address = preferences.lmstudioEndpoint }
         .onChange(of: address) { _, _ in addressError = nil }

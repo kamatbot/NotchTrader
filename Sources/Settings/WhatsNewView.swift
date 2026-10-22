@@ -39,7 +39,7 @@ struct WhatsNewView: View {
                 .font(.system(size: 19, weight: .semibold))
                 .multilineTextAlignment(.center)
             Text(L10n.t("Version \(note.version)"))
-                .font(.caption)
+                .font(.callout)
                 .foregroundStyle(.tertiary)
             Text(note.headline)
                 .font(.callout)

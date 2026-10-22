@@ -276,6 +276,8 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
                                    previewSessionLimitAlert: previewSessionLimitAlert,
                                    previewWeeklyLimitAlert: previewWeeklyLimitAlert,
                                    sendTestNotification: sendTestNotification)
+                // One point over the macOS default, for any text without its own font.
+                .font(.system(size: 14))
         )
         hostingView.sizingOptions = []
         window.contentView = hostingView

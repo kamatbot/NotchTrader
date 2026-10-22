@@ -68,7 +68,7 @@ struct OllamaSettingsRow: View {
                 OllamaRelayStatus(relay: relay)
             }
         }
-        .font(.caption)
+        .font(.callout)
         .fixedSize(horizontal: false, vertical: true)
         .onAppear { address = preferences.ollamaEndpoint }
         .onChange(of: address) { _, _ in addressError = nil }

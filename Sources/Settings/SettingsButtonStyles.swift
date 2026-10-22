@@ -52,7 +52,7 @@ private struct SettingsButtonBody: View {
 
     var body: some View {
         configuration.label
-            .font(.system(size: compact ? 11 : 12, weight: compact ? .semibold : .medium))
+            .font(.system(size: compact ? 12 : 13, weight: compact ? .semibold : .medium))
             .foregroundStyle(foreground)
             .padding(.horizontal, compact ? 9 : 12)
             .padding(.vertical, compact ? 3 : 5)

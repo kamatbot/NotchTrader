@@ -31,14 +31,14 @@ struct SwarmaSettingsView: View {
                 Toggle("Show Swarmaa agents and swarms", isOn: $preferences.swarmaEnabled)
 
                 Text("One cell per worker, with its quota and the task it is on, and one per project scope, with what is running, queued and done today. The list comes from the service, so cells appear and disappear as workers do.")
-                    .font(.caption)
+                    .font(.callout)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
 
                 Toggle("Show active chats", isOn: $preferences.swarmaShowsChats)
                     .disabled(!preferences.swarmaEnabled)
                 Text("One cell per service with a chat in the last 15 minutes: Claude Code, Codex, Antigravity, Grok or Dot. It goes when the chats do.")
-                    .font(.caption)
+                    .font(.callout)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -50,7 +50,7 @@ struct SwarmaSettingsView: View {
                 }
                 if let problem = urlProblem {
                     Text(problem)
-                        .font(.caption)
+                        .font(.callout)
                         .foregroundStyle(Color.red)
                 }
 
@@ -61,7 +61,7 @@ struct SwarmaSettingsView: View {
                 Text(tokenFileExists
                      ? L10n.t("Token file found. Its contents are only ever sent to the service URL above.")
                      : L10n.t("No file at that path yet."))
-                    .font(.caption)
+                    .font(.callout)
                     .foregroundStyle(tokenFileExists ? Color.secondary : Color.orange)
                     .fixedSize(horizontal: false, vertical: true)
             }

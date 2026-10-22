@@ -62,7 +62,7 @@ struct CustomEndpointsSettingsView: View {
                             Text(L10n.t("Custom Endpoints"))
                                 .font(.title3.weight(.semibold))
                             Text(L10n.t("Connect any OpenAI-compatible API, local inference runtime, or custom proxy."))
-                                .font(.subheadline)
+                                .font(.callout)
                                 .foregroundStyle(.secondary)
                         }
                         Spacer()
@@ -111,7 +111,7 @@ struct CustomEndpointsSettingsView: View {
                                         .fill(Color.green)
                                         .frame(width: 8, height: 8)
                                     Text(preset.name)
-                                        .font(.caption)
+                                        .font(.callout)
                                     Text(preset.baseURL)
                                         .font(.caption2)
                                         .foregroundStyle(.tertiary)
@@ -180,7 +180,7 @@ struct CustomEndpointsSettingsView: View {
             Section(L10n.t("Configured Endpoints")) {
                 if preferences.customEndpoints.isEmpty {
                     Text(L10n.t("No custom endpoints yet. Click 'Add Endpoint' or pick a Quick Template to get started."))
-                        .font(.caption)
+                        .font(.callout)
                         .foregroundStyle(.secondary)
                         .padding(.vertical, 6)
                 } else {
@@ -237,7 +237,7 @@ struct CustomEndpointsSettingsView: View {
                     }
 
                     Text(endpoint.baseURL)
-                        .font(.caption)
+                        .font(.callout)
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
                 }
@@ -287,7 +287,7 @@ struct CustomEndpointsSettingsView: View {
             HStack(spacing: 8) {
                 if endpoint.usageSource == .jsonEndpoint, let preset = endpoint.usagePreset {
                     Text(usagePresetUnit(preset))
-                        .font(.caption)
+                        .font(.callout)
                         .foregroundStyle(.secondary)
                 } else {
                     switch endpoint.trackingUnit {
@@ -507,11 +507,11 @@ struct CustomEndpointsSettingsView: View {
                     if isDetectingUsage {
                         ProgressView().controlSize(.small)
                         Text(L10n.t("Checking usage route..."))
-                            .font(.caption)
+                            .font(.callout)
                             .foregroundStyle(.secondary)
                     } else if let result = usageDetectionResult {
                         Text(result.message)
-                            .font(.caption)
+                            .font(.callout)
                             .foregroundStyle(result.failed ? .red : .secondary)
                     }
 
@@ -530,12 +530,12 @@ struct CustomEndpointsSettingsView: View {
                     VStack(alignment: .leading, spacing: 2) {
                         if let url = CustomEndpointPresetUsage.presetURL(preset, baseURL: editingEndpoint?.baseURL ?? "") {
                             Text(String(format: L10n.t("Usage URL: %@"), url.absoluteString))
-                                .font(.caption)
+                                .font(.callout)
                                 .foregroundStyle(.secondary)
                                 .textSelection(.enabled)
                         }
                         Text(usagePresetUnit(preset))
-                            .font(.caption)
+                            .font(.callout)
                             .foregroundStyle(.secondary)
                     }
                 }
@@ -566,7 +566,7 @@ struct CustomEndpointsSettingsView: View {
                                 .fill(res.health.color)
                                 .frame(width: 8, height: 8)
                             Text(res.error ?? "\(res.health.title) (\(res.latencyMs) ms)")
-                                .font(.caption)
+                                .font(.callout)
                                 .foregroundStyle(res.error != nil ? .red : .secondary)
                         }
                     }
@@ -611,7 +611,7 @@ struct CustomEndpointsSettingsView: View {
                 ))
                 .textFieldStyle(.roundedBorder)
                 Text(L10n.t("Use the provider key from OpenCode settings. Activity is matched to this provider and the selected model. Leave empty to disable."))
-                    .font(.caption)
+                    .font(.callout)
                     .foregroundStyle(.secondary)
                 Button(L10n.t("Install OpenCode bridge")) {
                     do {
@@ -623,7 +623,7 @@ struct CustomEndpointsSettingsView: View {
                 }
                 .buttonStyle(SettingsButtonStyle(kind: .standard, compact: true))
                 if let openCodeBridgeMessage {
-                    Text(openCodeBridgeMessage).font(.caption).foregroundStyle(.secondary)
+                    Text(openCodeBridgeMessage).font(.callout).foregroundStyle(.secondary)
                 }
             }
 
@@ -788,7 +788,7 @@ struct CustomEndpointsSettingsView: View {
                                             Text(L10n.t("Requires --metrics on llama-server"))
                                         }
                                     }
-                                    .font(.caption)
+                                    .font(.callout)
                                     .foregroundStyle(.secondary)
                                 } else {
                                     VStack(alignment: .leading, spacing: 8) {

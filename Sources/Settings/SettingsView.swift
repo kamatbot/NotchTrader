@@ -307,7 +307,7 @@ private struct SettingsSidebarRow: View {
                 }
         } else {
             Image(systemName: section.icon)
-                .font(.system(size: indent ? 12 : 13, weight: .regular))
+                .font(.system(size: indent ? 13 : 14, weight: .regular))
                 .symbolEffect(.bounce, value: bounce)
         }
     }
@@ -773,7 +773,7 @@ struct SettingsView: View {
                 if needsSetup { setupNote }
                 Toggle(L10n.t("Auto-order based on remaining usage"), isOn: $preferences.autoOrderByRemaining)
                 Text(L10n.t("The notch sorts rings by what is left of the window that leads each ring, most first. A high number that cannot be spent yet sinks below usable accounts but stays above empty ones. This list keeps your manual order, which breaks ties."))
-                    .font(.caption)
+                    .font(.callout)
                     .foregroundStyle(.tertiary)
                     .fixedSize(horizontal: false, vertical: true)
                 ForEach(connected) { account in
@@ -790,21 +790,21 @@ struct SettingsView: View {
                 }
                 if connected.isEmpty {
                     Text(L10n.t("Nothing is connected, so the notch has no rings to draw."))
-                        .font(.caption)
+                        .font(.callout)
                         .foregroundStyle(.tertiary)
                         .fixedSize(horizontal: false, vertical: true)
                 } else if !connected.isEmpty {
                     Text(preferences.autoOrderByRemaining
                          ? L10n.t("Auto-order is on: the notch sorts these by remaining usage. Dragging still sets the order ties break in.")
                          : L10n.t("The notch draws these in this order. Drag one by its handle to move it."))
-                        .font(.caption)
+                        .font(.callout)
                         .foregroundStyle(.tertiary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 // Beside the switches it explains, not stranded at the end of
                 // the page.
                 Text(L10n.t("Most readings are borrowed from a tool that already holds the account. DeepSeek and MiniMax are the exceptions: clicking Sign in opens a Swarmaa window for that account, and signing out here clears only that session and its saved reading."))
-                    .font(.caption)
+                    .font(.callout)
                     .foregroundStyle(.tertiary)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -828,7 +828,7 @@ struct SettingsView: View {
                     // Says what switching one back on will do, which is the
                     // only question this group raises.
                     Text(L10n.t("These have no ring to place. Switch one on and it joins the end of the list above."))
-                        .font(.caption)
+                        .font(.callout)
                         .foregroundStyle(.tertiary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -854,7 +854,7 @@ struct SettingsView: View {
                 .pickerStyle(.segmented)
 
                 Text(preferences.resetTimeFormat.explanation)
-                    .font(.caption)
+                    .font(.callout)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
 
@@ -864,13 +864,13 @@ struct SettingsView: View {
                 .pickerStyle(.segmented)
 
                 Text(preferences.busyIndicatorStyle.explanation)
-                    .font(.caption)
+                    .font(.callout)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
 
                 Toggle(L10n.t("Show usage pace"), isOn: $preferences.showUsagePace)
                 Text(L10n.t("Compares each timed allowance with the time left until reset, showing quota in deficit or held in reserve."))
-                    .font(.caption)
+                    .font(.callout)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
 
@@ -881,7 +881,7 @@ struct SettingsView: View {
                         }
                     }
                 Text(L10n.t("The ring still follows the main Codex window. Spark and code review stay in the hover card."))
-                    .font(.caption)
+                    .font(.callout)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
 
@@ -891,7 +891,7 @@ struct SettingsView: View {
                 .pickerStyle(.segmented)
 
                 Text(preferences.weeklyRing.explanation)
-                    .font(.caption)
+                    .font(.callout)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
 
@@ -900,28 +900,28 @@ struct SettingsView: View {
                 Text(sizeIsDecidedByTheHardware
                      ? L10n.t("Merged into your Mac's own notch the bar is exactly as deep as the cutout, so a ring and a percentage under it have to share that depth — showing it draws the rings smaller. Turn it off for the largest rings the cutout has room for.")
                      : L10n.t("The figure under each ring. Turn it off for rings alone; the number is still a hover away in the card."))
-                    .font(.caption)
+                    .font(.callout)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
 
                 Toggle(L10n.t("Show remaining instead of used"),
                        isOn: $preferences.showsRemainingInNotch)
                 Text(L10n.t("The notch reads what is left — the figures, the rings' sweep, and the card's bars and percentages. Colours still judge by what is spent, so a nearly empty ring still reads red."))
-                    .font(.caption)
+                    .font(.callout)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
 
                 Toggle(L10n.t("Shut rings when a window is spent"),
                        isOn: $preferences.shutRingsWhenSpent)
                 Text(L10n.t("When the 5-hour or the weekly window is spent, both rings say shut even where the other window still has room — dark grey where the notch reads what is left, red where it reads what is spent."))
-                    .font(.caption)
+                    .font(.callout)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
 
                 Toggle(L10n.t("Hide accounts with nothing left to spend"),
                        isOn: $preferences.hideDepletedAccounts)
                 Text(L10n.t("When the 5-hour or the weekly window is at 0% remaining, the account leaves the notch until a window resets. Stale readings stay: an old number is not proof the account is empty."))
-                    .font(.caption)
+                    .font(.callout)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
 
@@ -932,13 +932,13 @@ struct SettingsView: View {
 
                 Toggle(L10n.t("Weekly limit as the main ring"), isOn: $preferences.weeklyHeadline)
                 Text(L10n.t("For every provider with a weekly limit beside a shorter one, the main ring shows the week. The shorter window moves to the thin ring and the card. Alerts, the menu bar and providers with no weekly limit are unchanged, and Claude's daily pace ring still leads when it is on."))
-                    .font(.caption)
+                    .font(.callout)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
 
                 Toggle(L10n.t("Claude daily pace ring"), isOn: $preferences.claudeDailyPaceRing)
                 Text(L10n.t("Claude's main ring shows today's share of the weekly limit — a seventh a day, counted from the weekly reset — instead of the session. The session moves to the thin ring and the card; alerts follow the daily ring."))
-                    .font(.caption)
+                    .font(.callout)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
 
@@ -948,13 +948,13 @@ struct SettingsView: View {
                 .pickerStyle(.segmented)
 
                 Text(preferences.notchVisibility.explanation)
-                    .font(.caption)
+                    .font(.callout)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
 
                 Toggle(L10n.t("Fold for full-screen apps"), isOn: $preferences.foldsForFullScreen)
                 Text(L10n.t("The notch folds away while a full-screen app is frontmost, and returns when you leave it. Off keeps it in place over full-screen apps."))
-                    .font(.caption)
+                    .font(.callout)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
 
@@ -964,7 +964,7 @@ struct SettingsView: View {
                 .pickerStyle(.segmented)
 
                 Text(preferences.notchEdge.explanation)
-                    .font(.caption)
+                    .font(.callout)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
 
@@ -978,7 +978,7 @@ struct SettingsView: View {
                     .pickerStyle(.segmented)
 
                     Text(preferences.notchSurfaceStyle.explanation)
-                        .font(.caption)
+                        .font(.callout)
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -996,7 +996,7 @@ struct SettingsView: View {
                 // notch is not moving.
                 if sizeIsDecidedByTheHardware {
                     Text(L10n.t("On this edge your notch is merged into your Mac's own cutout, and the cutout sets its size. This has no effect here — it is waiting for you to move the notch to another edge."))
-                        .font(.caption)
+                        .font(.callout)
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -1026,7 +1026,7 @@ struct SettingsView: View {
                     }
 
                     Text(L10n.t("Scales the whole surface — rings, text and tooltip together — so the proportions stay as drawn. 100% is the size the notch was designed at."))
-                        .font(.caption)
+                        .font(.callout)
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                 } else {
@@ -1037,7 +1037,7 @@ struct SettingsView: View {
                     .labelsHidden()
 
                     Text(preferences.notchSize.explanation)
-                        .font(.caption)
+                        .font(.callout)
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -1049,7 +1049,7 @@ struct SettingsView: View {
                 // far, short of dragging it out again.
                 HStack {
                     Text(L10n.t("Hold ⌥ and drag the notch to slide it along its edge. Each edge remembers where you left it."))
-                        .font(.caption)
+                        .font(.callout)
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                     Spacer()
@@ -1080,7 +1080,7 @@ struct SettingsView: View {
                 .pickerStyle(.segmented)
 
                 Text(preferences.notchScope.explanation)
-                    .font(.caption)
+                    .font(.callout)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
 
@@ -1100,7 +1100,7 @@ struct SettingsView: View {
                     }
 
                     Text(displayExplanation)
-                        .font(.caption)
+                        .font(.callout)
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -1114,7 +1114,7 @@ struct SettingsView: View {
                     .pickerStyle(.segmented)
 
                     Text(preferences.colorTransitionStyle.explanation)
-                        .font(.caption)
+                        .font(.callout)
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -1140,7 +1140,7 @@ struct SettingsView: View {
                     // than left for the user to notice by moving it and seeing nothing change.
                     if preferences.colorTransitionStyle == .ramp {
                         Text(L10n.t("With the colour ramp on, this still marks critical elsewhere in the app, but the ring's own red only arrives at 100%."))
-                            .font(.caption)
+                            .font(.callout)
                             .foregroundStyle(.secondary)
                             .fixedSize(horizontal: false, vertical: true)
                     }
@@ -1182,7 +1182,7 @@ struct SettingsView: View {
                 .pickerStyle(.segmented)
 
                 Text(preferences.appPresence.explanation)
-                    .font(.caption)
+                    .font(.callout)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
 
@@ -1200,7 +1200,7 @@ struct SettingsView: View {
                 .pickerStyle(.menu)
 
                 Text(preferences.language.explanation)
-                    .font(.caption)
+                    .font(.callout)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -1217,7 +1217,7 @@ struct SettingsView: View {
     private var menuBarLimitRows: some View {
         Toggle(L10n.t("Show limit information in menu bar"), isOn: $preferences.showsLimitsInMenuBar)
         Text(L10n.t("Swaps the icon for each chosen provider's five-hour limit — how much is used and how long until it resets."))
-            .font(.caption)
+            .font(.callout)
             .foregroundStyle(.secondary)
             .fixedSize(horizontal: false, vertical: true)
 
@@ -1225,7 +1225,7 @@ struct SettingsView: View {
             Toggle(L10n.t("Show weekly limit in menu bar"),
                    isOn: $preferences.showsWeeklyLimitInMenuBar)
             Text(L10n.t("Adds a compact weekly-usage ring around each chosen provider that publishes it."))
-                .font(.caption)
+                .font(.callout)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
 
@@ -1250,7 +1250,7 @@ struct SettingsView: View {
             Text(menuBarChoices.isEmpty
                  ? L10n.t("Nothing Swarmaa reads has a five-hour limit to show yet. Claude and Codex do — switch one on in Accounts.")
                  : L10n.t("Leaving a provider out keeps it off the menu bar only — Swarmaa still reads it. With none chosen, the icon comes back."))
-                .font(.caption)
+                .font(.callout)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
 
@@ -1259,7 +1259,7 @@ struct SettingsView: View {
             // hides a status item that does not fit rather than squeezing it.
             if menuBarChoices.filter({ preferences.isInMenuBar($0.id) }).count > StatusItemSummary.fullEntryLimit {
                 Text(L10n.t("Past two, each shows its share alone and the countdowns move to the tooltip. Past four, the rest are in the menu."))
-                    .font(.caption)
+                    .font(.callout)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -1279,7 +1279,7 @@ struct SettingsView: View {
                 .pickerStyle(.segmented)
 
                 Text(preferences.notificationChannel.explanation)
-                    .font(.caption)
+                    .font(.callout)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
 
@@ -1288,7 +1288,7 @@ struct SettingsView: View {
                     Text(preferences.notificationChannel == .mac
                          ? L10n.t("Opens System Settings when banners are off for Swarmaa.")
                          : L10n.t("The notch opens for a moment, with the session sound."))
-                        .font(.caption)
+                        .font(.callout)
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -1308,7 +1308,7 @@ struct SettingsView: View {
                 .disabled(!preferences.announceSessionEnd)
 
                 Text(preferences.peekDuration.explanation)
-                    .font(.caption)
+                    .font(.callout)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
 
@@ -1324,12 +1324,12 @@ struct SettingsView: View {
                          pickerEnabled: preferences.sessionEndSound)
 
                 Text(L10n.t("Swarmaa already knows the moment an agent stops working or stops to ask you something. Clicking the notch while it is open brings that session's app to the front — the app, not the tab: only some terminals let anything outside them choose a tab, so the tooltip names the session instead."))
-                    .font(.caption)
+                    .font(.callout)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
 
                 Text(L10n.t("The sound plays on the ordinary output, not the interface sound-effects channel — so it is still heard with \u{201C}Play user interface sound effects\u{201D} switched off in System Settings → Sound."))
-                    .font(.caption)
+                    .font(.callout)
                     .foregroundStyle(.tertiary)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -1357,7 +1357,7 @@ struct SettingsView: View {
                 }
 
                 Text(L10n.t("Displays a notification card from the side of the notch when a provider's session or weekly usage limit is reached."))
-                    .font(.caption)
+                    .font(.callout)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -1377,7 +1377,7 @@ struct SettingsView: View {
                 }
 
                 Text(L10n.t("Displays a notification card from the side of the notch when a provider's usage limit resets."))
-                    .font(.caption)
+                    .font(.callout)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -1388,7 +1388,7 @@ struct SettingsView: View {
             // belongs to this pane's subject.
             Section(L10n.t("Threshold alerts")) {
                 Text(L10n.t("A system notification the moment a provider's headline limit crosses 80%, and again at 100% — once per crossing, and again only after the window rolls over. Mute one from the bell beside its row in Accounts."))
-                    .font(.caption)
+                    .font(.callout)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -1407,7 +1407,7 @@ struct SettingsView: View {
                 Toggle(L10n.t("Open Swarmaa at login"), isOn: $preferences.launchAtLogin)
                 if let problem = preferences.launchAtLoginProblem {
                     Text(problem)
-                        .font(.caption)
+                        .font(.callout)
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -1425,7 +1425,7 @@ struct SettingsView: View {
                     // background updater and something that looks like it is
                     // hiding.
                     Text(L10n.t("Version \(updater.currentVersion). New versions are offered in the notch, and install when you choose Update."))
-                        .font(.caption)
+                        .font(.callout)
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                     Spacer(minLength: 0)
@@ -1444,7 +1444,7 @@ struct SettingsView: View {
                 // names no cause and offers nothing to do about it.
                 if let message = updater.outcome.message {
                     Text(message)
-                        .font(.caption)
+                        .font(.callout)
                         .foregroundStyle(
                             updater.outcome == .unreachable ? .orange : .secondary
                         )
@@ -1456,11 +1456,11 @@ struct SettingsView: View {
                 Toggle(L10n.t("Ask the provider every time you look"),
                        isOn: $preferences.asksProviderOnLook)
                 Text(L10n.t("Pointing at a ring, or opening the menu bar menu, re-reads the limit from the provider itself rather than from a reading cached moments ago. Off, a look still asks for a live reading and accepts a cached one only while it is newer than a couple of minutes."))
-                    .font(.caption)
+                    .font(.callout)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
                 Text(L10n.t("It spends a request every time. A provider that rate-limits answers one request too many by refusing the next few minutes of them, and the figure then ages further than it would have. Worth turning on to check Swarmaa against a provider's own dashboard, and worth turning off again after."))
-                    .font(.caption)
+                    .font(.callout)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -1482,7 +1482,7 @@ struct SettingsView: View {
                             if inside { NSCursor.pointingHand.push() } else { NSCursor.pop() }
                         }
                 }
-                .font(.caption)
+                .font(.callout)
                 .foregroundStyle(.secondary)
             }
         }
@@ -1541,10 +1541,10 @@ struct SettingsView: View {
 
     /// The sidebar plus a detail pane wide enough for an account row's name,
     /// buttons and switch without crowding.
-    static let width: CGFloat = 860
+    static let width: CGFloat = 940
     /// Each pane scrolls on its own now, so this no longer has to fit every
     /// section in the app at once — just a comfortable account list.
-    static let height: CGFloat = 600
+    static let height: CGFloat = 680
 
     /// The rows the notch actually draws, in the order it draws them.
     ///
@@ -1638,12 +1638,12 @@ struct SettingsView: View {
                 Text(L10n.t("Connect an assistant to get started"))
                     .font(.callout.weight(.medium))
                 Text(SettingsView.setupCopy)
-                    .font(.caption)
+                    .font(.callout)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
 
                 Text(SettingsView.keychainCopy)
-                    .font(.caption)
+                    .font(.callout)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
                     .padding(.top, 2)
@@ -1940,7 +1940,7 @@ private struct AccountRow: View {
                                     preferences.setNickname(name, for: provider.id)
                                 }
                             Text(L10n.t("What the notch, the menu bar and notifications call this account. Empty goes back to \(provider.name)."))
-                                .font(.caption)
+                                .font(.callout)
                                 .foregroundStyle(.secondary)
                                 .fixedSize(horizontal: false, vertical: true)
                         }
@@ -2012,7 +2012,7 @@ private struct AccountRow: View {
             // 48 = the handle, the glyph and the two gaps before the name, so
             // the detail still starts under the first letter of the name.
             detail
-                .font(.caption)
+                .font(.callout)
                 .padding(.leading, 48)
 
             // Outside `detail` on purpose. That chain shows the account summary
@@ -2022,7 +2022,7 @@ private struct AccountRow: View {
             // makes everything look fine.
             if isConnected, provider.needsSignInRenewal {
                 Text(L10n.t("\(provider.name) usage needs its sign-in renewed — run `claude` once in a terminal."))
-                    .font(.caption)
+                    .font(.callout)
                     .foregroundStyle(.orange)
                     .padding(.leading, 48)
                     .fixedSize(horizontal: false, vertical: true)
@@ -2581,7 +2581,7 @@ struct PhoneSettingsPane: View {
                             VStack(alignment: .leading) {
                                 Text(device.name)
                                 Text(lastSeenText(for: device))
-                                    .font(.caption)
+                                    .font(.callout)
                                     .foregroundColor(.secondary)
                             }
                             Spacer()

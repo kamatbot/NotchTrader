@@ -102,7 +102,7 @@ struct RoutingSettingsView: View {
             }
             .listStyle(.inset)
             .scrollDisabled(true)
-            .frame(height: 3 * 178 + 12)
+            .frame(height: 3 * 125 + 12)
             .clipShape(RoundedRectangle(cornerRadius: 10))
             .disabled(!model.canEdit)
         }
@@ -119,10 +119,10 @@ struct RoutingSettingsView: View {
     private var footer: some View {
         VStack(alignment: .trailing, spacing: 8) {
             if let problem = model.validationProblem {
-                Text(verbatim: problem).font(.caption).foregroundStyle(.red)
+                Text(verbatim: problem).font(.callout).foregroundStyle(.red)
             }
             if let message = model.message {
-                Text(verbatim: message).font(.caption).foregroundStyle(.red)
+                Text(verbatim: message).font(.callout).foregroundStyle(.red)
             }
             HStack {
                 Button(L10n.t("Reset to defaults")) { model.resetToDefaults() }
@@ -179,7 +179,7 @@ private struct RuleRow: View {
                 }
                 if rule.provider == "antigravity" {
                     Text(L10n.t("Antigravity: reviews only recommended — it cannot run commands or reach outside the project"))
-                        .font(.caption).foregroundStyle(.secondary)
+                        .font(.callout).foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
