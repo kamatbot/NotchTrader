@@ -139,9 +139,10 @@ struct SwarmaSessionDetail: Decodable, Equatable {
         turns = ((try? c.decodeIfPresent([Turn].self, forKey: .turns)) ?? nil) ?? []
     }
 
-    /// The cited turns, in citation order. `cited` indexes `turns` from zero;
-    /// one out of range is skipped.
+    /// The cited turns, in citation order. Lessons cite turns 1-based (as the
+    /// distill prompt numbers them); `index` stays that 1-based number for display.
+    /// A number out of range is skipped.
     func cited(_ cited: [Int]) -> [(index: Int, turn: Turn)] {
-        cited.compactMap { turns.indices.contains($0) ? ($0, turns[$0]) : nil }
+        cited.compactMap { turns.indices.contains($0 - 1) ? ($0, turns[$0 - 1]) : nil }
     }
 }
