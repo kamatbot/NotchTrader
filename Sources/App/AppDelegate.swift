@@ -3,6 +3,8 @@ import Combine
 import SwiftUI
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
+    /// The running delegate. `NSApp.delegate` is SwiftUI's adaptor proxy, not this class, so casting it finds nothing.
+    private(set) static weak var shared: AppDelegate?
     private var notchFleet: NotchFleet?
     private var store: UsageStore?
     var phoneLinkServer: PhoneLinkServer?
@@ -98,6 +100,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var swarmaDirectory: SwarmaDirectory?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        Self.shared = self
         NotificationCenter.default.addObserver(forName: .swarmaaRunSetup, object: nil, queue: .main) { [weak self] _ in
             MainActor.assumeIsolated { self?.runSetup() }
         }

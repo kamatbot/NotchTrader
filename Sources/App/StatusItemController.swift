@@ -404,14 +404,14 @@ final class StatusItemController: NSObject, NSMenuDelegate {
     }
 
 @objc private func connectPhone() {
-        if let appDelegate = NSApp.delegate as? AppDelegate {
+        if let appDelegate = AppDelegate.shared {
             appDelegate.openConnectPhone()
         }
     }
 
     @objc private func openSettings() { onOpenSettings() }
-    @objc private func reviewLessons() { (NSApp.delegate as? AppDelegate)?.reviewLessons() }
-    @objc private func runSetup() { (NSApp.delegate as? AppDelegate)?.runSetup() }
+    @objc private func reviewLessons() { AppDelegate.shared?.reviewLessons() }
+    @objc private func runSetup() { AppDelegate.shared?.runSetup() }
     @objc private func openActivity() { Costs.showActivity() }
     @objc private func quit() { NSApp.terminate(nil) }
 
