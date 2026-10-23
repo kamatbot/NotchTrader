@@ -18,7 +18,7 @@ struct OnboardingView: View {
                     case .progress: ProgressPage(model: model)
                     case .summary: SummaryPage(model: model)
                     case .connect: ConnectPage(model: model)
-                    case .connected: ConnectedPage()
+                    case .connected: ConnectedPage(model: model)
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -176,9 +176,33 @@ private struct ConnectPage: View {
 }
 
 private struct ConnectedPage: View {
+    @ObservedObject var model: OnboardingModel
     var body: some View {
         PageHeader(title: "You're connected",
                    subtitle: "This Mac now shows your Swarmaa agents and swarms in the notch. Nothing was installed on this Mac.")
+        StarterPromptBox(text: StarterPrompt.text(projects: [], remoteMCP: (try? SwarmaOAuth.origin(model.remoteAddress)).map(SwarmaOAuth.resource)))
+    }
+}
+
+/// The copy-ready prompt for the user's AI agent; the button is the page's only call to action.
+struct StarterPromptBox: View {
+    let text: String
+    @State private var copied = false
+    var body: some View {
+        Text("Get started").font(.headline)
+        Text("Paste this into Claude Code, Codex or Antigravity:").foregroundStyle(.secondary)
+        // The page already scrolls, so the prompt is shown in full rather than in a nested scroll area.
+        Text(text).font(.system(.callout, design: .monospaced)).textSelection(.enabled)
+            .fixedSize(horizontal: false, vertical: true)
+            .frame(maxWidth: .infinity, alignment: .leading).padding(12)
+            .background(RoundedRectangle(cornerRadius: 8).fill(Color.secondary.opacity(0.1)))
+        Button(copied ? "Copied" : "Copy starter prompt") {
+            NSPasteboard.general.clearContents()
+            NSPasteboard.general.setString(text, forType: .string)
+            copied = true
+        }
+        .buttonStyle(.borderedProminent)
+        .accessibilityLabel("Copy starter prompt")
     }
 }
 
@@ -369,6 +393,7 @@ private struct SummaryPage: View {
             Text("Next steps").font(.headline)
             ForEach(s.nextSteps, id: \.self) { Text("• \($0)") }
         }
+        if s.ok { StarterPromptBox(text: StarterPrompt.text(projects: s.projects.map(\.scope))) }
     }
 
     @ViewBuilder private func line(_ title: LocalizedStringKey, _ values: [String]) -> some View {
