@@ -1878,3 +1878,18 @@ private final class GoogleStub: URLProtocol {
 
     override func stopLoading() {}
 }
+
+final class AntigravityHeadlineTests: XCTestCase {
+    /// Live reading of 2026-10-24: Gemini 4 Argon is its own quota group and was the
+    /// most-used window; the Gemini headline must show the shared Gemini limit.
+    func testArgonDoesNotStandInForTheGeminiLimit() {
+        let windows = [
+            LimitWindow(id: "gemini-weekly", group: "Gemini Models", label: "Weekly", usedFraction: 0.36),
+            LimitWindow(id: "gemini-5h", group: "Gemini Models", label: "5-hour", usedFraction: 0.57),
+            LimitWindow(id: "gemini-argon-wtu-weekly", group: "Gemini 4 Argon", label: "Weekly", usedFraction: 0.61),
+        ]
+        let provider = AntigravityProvider()
+        XCTAssertEqual(provider.resolveHeadlineID(for: windows), "gemini-5h")
+        XCTAssertEqual(provider.resolveWeeklyID(for: windows), "gemini-weekly")
+    }
+}

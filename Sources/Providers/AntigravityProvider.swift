@@ -173,10 +173,16 @@ actor AntigravityProvider: UsageProvider {
         )
     }
 
+    /// Windows of the chosen model group. Gemini 4 Argon ("gemini-argon-…") is a separate
+    /// quota group, so it must not stand in for the shared Gemini limit.
+    private nonisolated func windows(_ windows: [LimitWindow], of model: AntigravityHeadlineModel) -> [LimitWindow] {
+        windows.filter { $0.id.hasPrefix(model.rawValue) && !$0.id.hasPrefix("gemini-argon") }
+    }
+
     nonisolated func resolveHeadlineID(for windows: [LimitWindow]) -> String {
         let preferredLimit = Preferences.storedAntigravityHeadlineLimit()
         let preferredModel = Preferences.storedAntigravityHeadlineModel()
-        let modelCandidates = windows.filter { $0.id.hasPrefix(preferredModel.rawValue) }
+        let modelCandidates = self.windows(windows, of: preferredModel)
         let candidates = modelCandidates.isEmpty ? windows : modelCandidates
 
         if preferredLimit != .automatic {
@@ -218,7 +224,7 @@ actor AntigravityProvider: UsageProvider {
 
     nonisolated func resolveWeeklyID(for windows: [LimitWindow]) -> String? {
         let preferredModel = Preferences.storedAntigravityHeadlineModel()
-        let modelCandidates = windows.filter { $0.id.hasPrefix(preferredModel.rawValue) }
+        let modelCandidates = self.windows(windows, of: preferredModel)
         let candidates = modelCandidates.isEmpty ? windows : modelCandidates
         let weekly = candidates.filter { window in
             window.duration == 7 * 86400 ||
