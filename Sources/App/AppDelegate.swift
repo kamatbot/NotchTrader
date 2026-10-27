@@ -310,6 +310,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 .sink { [weak swarma] _ in swarma?.sync() }
                 .store(in: &cancellables)
             fleet.onReviewLessons = { [weak self] in self?.reviewLessons() }
+            fleet.onOpenThread = { [weak self] in self?.openTeams(threadID: $0) }
             fleet.onCancelSwarmTask = { [weak swarma] target in
                 Task { await swarma?.cancel(target) }
             }
@@ -1517,6 +1518,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @MainActor func openSettings() { settings?.show() }
+
+    private var teams: TeamsWindowController?
+    /// The main window, from the status item or a notch swarm/question item.
+    @MainActor func openTeams(threadID: String? = nil) {
+        if teams == nil { teams = TeamsWindowController() }
+        teams?.show(threadID: threadID)
+    }
 
     private var lessonReview: LessonReviewWindowController?
     /// The Lesson Review window, from the notch, the status item or the app menu.

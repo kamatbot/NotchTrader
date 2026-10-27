@@ -37,6 +37,7 @@ final class NotchWindowController {
     /// Cancel a running Swarma task, asked for from a cell's context menu.
     var onCancelSwarmTask: ((SwarmaCancelTarget) -> Void)?
     var onReviewLessons: (() -> Void)?
+    var onOpenThread: ((String) -> Void)?
     /// An ⌥-drag on the pill settled at a new `model.alongOffset`. The
     /// controller only holds the live value; persisting it per edge is
     /// Preferences' job, the same division `apply(edge:)` already keeps.
@@ -1571,6 +1572,8 @@ final class NotchWindowController {
             let snapshot = model.snapshots[index]
             if snapshot.id == SwarmaCells.lessonsID, let onReviewLessons {
                 onReviewLessons()
+            } else if let thread = SwarmaCells.threadID(fromCellID: snapshot.id), let onOpenThread {
+                onOpenThread(thread)
             } else if let onRefreshProvider {
                 Task { await model.refresh(snapshot, using: onRefreshProvider) }
             }

@@ -481,6 +481,8 @@ actor SwarmaClient {
             let code = ((text.flatMap { try? JSONSerialization.jsonObject(with: Data($0.utf8)) } as? [String: Any])?["error"] as? [String: Any])?["code"] as? String
             if code?.contains("forbidden") == true || code == "permission_denied" { throw Failure.forbidden }
             if code == "unauthorized" { throw Failure.unauthorized }
+            // The REST route answers this as a 404; keep the two transports alike.
+            if code == "unknown_tool" { throw Failure.http(404) }
             if code == "invalid_policy" { throw Failure.invalidPolicy(Self.invalidPolicyMessage(text.map { Data($0.utf8) })) }
             throw Failure.badResponse
         }
@@ -489,6 +491,25 @@ actor SwarmaClient {
         else if let text, let parsed = try? JSONSerialization.jsonObject(with: Data(text.utf8), options: .fragmentsAllowed) { value = parsed }
         else { throw Failure.badResponse }
         return try JSONSerialization.data(withJSONObject: ["result": value])
+    }
+
+    /// `GET {serviceURL}/{path}?query` with the same bearer token a tool call
+    /// would carry; the teams SSE stream is the one caller.
+    func getRequest(path: String, query: [URLQueryItem]) async throws -> URLRequest {
+        var url = try Self.endpoint(serviceURL(), path: path)
+        if !query.isEmpty, var parts = URLComponents(url: url, resolvingAgainstBaseURL: false) {
+            parts.queryItems = query
+            url = parts.url ?? url
+        }
+        let token: String
+        if authMode() == .oauth {
+            do { token = try await oauth.accessToken(forceRefresh: false) } catch { throw Failure.unauthorized }
+        } else {
+            token = try readToken()
+        }
+        var request = URLRequest(url: url)
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        return request
     }
 
     private func makeRequest(tool: String, body: Data) throws -> URLRequest {
@@ -513,6 +534,10 @@ actor SwarmaClient {
     /// Plain http only to this Mac. A bearer token over http to anywhere else
     /// would cross the network readable by whoever is on it.
     nonisolated static func endpoint(_ serviceURL: String, tool: String) throws -> URL {
+        try endpoint(serviceURL, path: "api/tools/\(tool)")
+    }
+
+    nonisolated static func endpoint(_ serviceURL: String, path: String) throws -> URL {
         guard var parts = URLComponents(string: serviceURL.trimmingCharacters(in: .whitespacesAndNewlines)),
               let scheme = parts.scheme?.lowercased(), scheme == "http" || scheme == "https",
               let host = parts.host?.lowercased(), !host.isEmpty
@@ -525,7 +550,7 @@ actor SwarmaClient {
         parts.query = nil
         parts.fragment = nil
         let base = parts.path.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
-        parts.path = (base.isEmpty ? "" : "/" + base) + "/api/tools/\(tool)"
+        parts.path = (base.isEmpty ? "" : "/" + base) + "/" + path
         guard let url = parts.url else { throw Failure.badURL }
         return url
     }
