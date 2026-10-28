@@ -6,22 +6,25 @@ struct SwarmaSettingsView: View {
     @ObservedObject var preferences: Preferences
     var previewSwarmaUpdate: (() -> Void)? = nil
     @State private var tab = Tab.general
+    @StateObject private var setup = TeamsModel()
 
-    private enum Tab { case general, routing }
+    private enum Tab { case general, routing, setup }
 
     var body: some View {
         VStack(spacing: 0) {
             Picker("", selection: $tab) {
                 Text(L10n.t("General")).tag(Tab.general)
                 Text(L10n.t("Routing")).tag(Tab.routing)
+                Text(L10n.t("Setup")).tag(Tab.setup)
             }
             .pickerStyle(.segmented).labelsHidden()
-            .frame(maxWidth: 240)
+            .frame(maxWidth: 320)
             .padding(.vertical, 10)
             .accessibilityLabel(L10n.t("Swarmaa settings section"))
             switch tab {
             case .general: general
             case .routing: RoutingSettingsView()
+            case .setup: ScrollView { SetupChecklistView(model: setup) }
             }
         }
     }

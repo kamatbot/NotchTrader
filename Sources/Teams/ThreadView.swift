@@ -358,6 +358,15 @@ struct QuestionCard: View {
                 if question.freeText {
                     TextField(L10n.t("Add a note"), text: $text, axis: .vertical).textFieldStyle(.roundedBorder).lineLimit(1...4)
                 }
+                if model.answeringBlocked {
+                    // 403 owner_required: the owner grants this Mac `answer_questions`.
+                    VStack(alignment: .leading, spacing: 4) {
+                        Label(L10n.t("Ask the owner to allow answering questions from this Mac"), systemImage: "lock")
+                            .font(.system(size: 12, weight: .semibold)).foregroundStyle(Palette.watch)
+                        Text(verbatim: TeamsSetup.grantCommand).font(.system(size: 11, design: .monospaced))
+                            .textSelection(.enabled).foregroundStyle(Palette.textSecondary)
+                    }
+                }
                 HStack {
                     Spacer()
                     Button(L10n.t("Send")) {

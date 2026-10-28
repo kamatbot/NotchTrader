@@ -231,6 +231,47 @@ enum SwarmaCells {
         return cell(id: lessonsID, name: L10n.t("Lessons"), glyph: .third, window: window)
     }
 
+    // MARK: Questions and swarms
+
+    /// The open questions' one cell opens the newest one's thread.
+    static func questionsCellID(_ questions: [TeamsQuestion]) -> String? {
+        let open = questions.filter { $0.status == "open" && $0.threadID != nil }
+        let newest = open.max { ($0.createdAt ?? .distantPast) < ($1.createdAt ?? .distantPast) } ?? open.first
+        return newest?.threadID.map(threadCellID)
+    }
+
+    /// Only swarms that wait on someone get a cell.
+    static func notchSwarms(_ swarms: [TeamsSwarm]) -> [TeamsSwarm] {
+        swarms.filter { ["waiting_on_you", "blocked"].contains($0.status) && $0.threadID != nil }
+    }
+
+    /// The swarm's thread, suffixed so two swarms (or a swarm and the
+    /// questions) in one thread keep distinct cells; `threadID(fromCellID:)`
+    /// drops the suffix.
+    static func swarmCellID(_ swarm: TeamsSwarm) -> String? {
+        swarm.threadID.map { threadCellID($0) + "/swarm/" + swarm.id }
+    }
+
+    /// "2 waiting", amber, like the Lessons cell.
+    static func questionsSnapshot(id: String, questions: [TeamsQuestion]) -> ProviderSnapshot {
+        let open = questions.filter { $0.status == "open" }
+        let newest = open.max { ($0.createdAt ?? .distantPast) < ($1.createdAt ?? .distantPast) }
+        let window = LimitWindow(id: "primary", label: L10n.t("Questions"), used: open.count,
+                                 usedText: L10n.t("\(open.count) waiting"),
+                                 detail: newest?.prompt ?? L10n.t("Click to answer"),
+                                 bandOverride: .watch, prefersUsedText: true)
+        return cell(id: id, name: L10n.t("Questions"), glyph: .third, window: window)
+    }
+
+    /// "3/5": amber while it waits on you, red when blocked.
+    static func swarmSnapshot(id: String, swarm: TeamsSwarm) -> ProviderSnapshot {
+        let window = LimitWindow(id: "primary", label: swarm.title, used: swarm.progress.done,
+                                 usedText: "\(swarm.progress.done)/\(swarm.progress.total)",
+                                 detail: TeamsCopy.swarmStatus(swarm.status),
+                                 bandOverride: swarm.status == "blocked" ? .critical : .watch, prefersUsedText: true)
+        return cell(id: id, name: swarm.title, glyph: .third, window: window)
+    }
+
     // MARK: Failure
 
     /// The cell when the service cannot be read. No ring and no number: what the
@@ -350,6 +391,51 @@ final class SwarmLessonsProvider: UsageProvider {
     }
 }
 
+/// The open questions, as one cell.
+final class SwarmQuestionsProvider: UsageProvider {
+    let id: String
+    private let client: SwarmaTeamsClient
+
+    var kind: ProviderKind { .swarm }
+    var displayName: String { L10n.t("Questions") }
+    var glyph: ProviderGlyph { .third }
+
+    init(id: String, client: SwarmaTeamsClient) { self.id = id; self.client = client }
+
+    func fetchSnapshot() async throws -> ProviderSnapshot {
+        do {
+            return SwarmaCells.questionsSnapshot(id: id, questions: try await client.questionList())
+        } catch {
+            return SwarmaCells.unavailable(id: id, name: displayName, glyph: glyph,
+                                           detail: SwarmaTeamsClient.Failure.map(error).message)
+        }
+    }
+}
+
+/// One open swarm that waits on you or is blocked.
+final class SwarmWaitingProvider: UsageProvider {
+    let id: String
+    let swarmID: String
+    let displayName: String
+    private let client: SwarmaTeamsClient
+
+    var kind: ProviderKind { .swarm }
+    var glyph: ProviderGlyph { .third }
+
+    init(id: String, swarm: TeamsSwarm, client: SwarmaTeamsClient) {
+        self.id = id; self.swarmID = swarm.id; self.displayName = swarm.title; self.client = client
+    }
+
+    func fetchSnapshot() async throws -> ProviderSnapshot {
+        do {
+            return SwarmaCells.swarmSnapshot(id: id, swarm: try await client.swarmGet(id: swarmID))
+        } catch {
+            return SwarmaCells.unavailable(id: id, name: displayName, glyph: glyph,
+                                           detail: SwarmaTeamsClient.Failure.map(error).message)
+        }
+    }
+}
+
 /// A change of where the service recommends sending new work.
 struct SwarmaRoutingChange: Equatable {
     let from: String?
@@ -414,8 +500,11 @@ final class SwarmaDirectory {
     var onRoutingChange: ((SwarmaRoutingChange) -> Void)?
     private lazy var routingWatcher = SwarmaRoutingWatcher { [weak self] in self?.onRoutingChange?($0) }
 
+    private let teams: SwarmaTeamsClient
+
     init(client: SwarmaClient = .shared, store: UsageStore, interval: TimeInterval = 15) {
         self.client = client
+        self.teams = SwarmaTeamsClient(base: client)
         self.store = store
         self.interval = interval
     }
@@ -448,17 +537,24 @@ final class SwarmaDirectory {
             guard let self else { return }
             let result: Result<SwarmaStatus, Error>
             do { result = .success(try await client.status()) } catch { result = .failure(error) }
-            finishSync(result)
+            // Questions and swarms come from the teams tools; a service without them has neither.
+            var questions: [TeamsQuestion] = [], swarms: [TeamsSwarm] = []
+            if case .success = result {
+                questions = (try? await teams.questionList()) ?? []
+                swarms = (try? await teams.swarmList()) ?? []
+            }
+            finishSync(result, questions: questions, swarms: swarms)
         }
     }
 
-    private func finishSync(_ result: Result<SwarmaStatus, Error>) {
+    private func finishSync(_ result: Result<SwarmaStatus, Error>, questions: [TeamsQuestion] = [], swarms: [TeamsSwarm] = []) {
         syncing = false
         guard isEnabled, let store else { return }
         let providers: [UsageProvider]?
         switch result {
         case .success(let status):
             providers = Self.providers(for: status, client: client, showsChats: showsChats)
+                + Self.teamsProviders(questions: questions, swarms: swarms, client: teams)
             routingWatcher.observe(status.routing)
             if announcesUpdates {
                 let updates = SwarmaUpdates.diff(previous: previous, current: status, announced: &announced)
@@ -499,6 +595,15 @@ final class SwarmaDirectory {
             + status.scopes.filter { $0.queued + $0.running + $0.blocked > 0 }
                 .map(\.scope).sorted().map { SwarmScopeProvider(scope: $0, client: client) }
             + (status.lessonsPending > 0 ? [SwarmLessonsProvider(client: client)] : [])
+    }
+
+    /// The questions cell and one cell per swarm waiting on you or blocked.
+    nonisolated static func teamsProviders(questions: [TeamsQuestion], swarms: [TeamsSwarm],
+                                           client: SwarmaTeamsClient) -> [UsageProvider] {
+        (SwarmaCells.questionsCellID(questions).map { [SwarmQuestionsProvider(id: $0, client: client)] } ?? [])
+            + SwarmaCells.notchSwarms(swarms).compactMap { s in
+                SwarmaCells.swarmCellID(s).map { SwarmWaitingProvider(id: $0, swarm: s, client: client) }
+            }
     }
 
     /// Cancel a task from a cell's menu, then look again so the cell shows it.

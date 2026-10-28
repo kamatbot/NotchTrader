@@ -479,7 +479,8 @@ actor SwarmaClient {
         let text = ((result["content"] as? [[String: Any]])?.first?["text"] as? String)
         if result["isError"] as? Bool == true {
             let code = ((text.flatMap { try? JSONSerialization.jsonObject(with: Data($0.utf8)) } as? [String: Any])?["error"] as? [String: Any])?["code"] as? String
-            if code?.contains("forbidden") == true || code == "permission_denied" { throw Failure.forbidden }
+            // `owner_required`: a permission only the owner can grant (e.g. `answer_questions`).
+            if code?.contains("forbidden") == true || code == "permission_denied" || code == "owner_required" { throw Failure.forbidden }
             if code == "unauthorized" { throw Failure.unauthorized }
             // The REST route answers this as a 404; keep the two transports alike.
             if code == "unknown_tool" { throw Failure.http(404) }

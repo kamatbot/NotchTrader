@@ -22,6 +22,11 @@ final class TeamsWindowController: NSObject, NSWindowDelegate {
             window.setFrameAutosaveName("SwarmaaTeamsWindow")
             if !window.setFrameUsingName("SwarmaaTeamsWindow") { window.center() }
             self.window = window
+            // The first time the window opens, show the setup checklist if anything is wrong.
+            Task { [model] in
+                await model.runSetup()
+                if model.setupRows.contains(where: { $0.state == .needsSetup }) { model.showSetup = true }
+            }
         }
         NSApp.activate(ignoringOtherApps: true)
         window?.makeKeyAndOrderFront(nil)
@@ -56,6 +61,7 @@ struct TeamsRootView: View {
         .sheet(item: Binding(get: { model.detailSwarmID.map(SwarmID.init) }, set: { model.detailSwarmID = $0?.id })) {
             SwarmDetailView(model: model, swarmID: $0.id)
         }
+        .sheet(isPresented: $model.showSetup) { SetupChecklistView(model: model) { model.showSetup = false } }
     }
 
     private struct SwarmID: Identifiable { let id: String }
@@ -74,6 +80,8 @@ struct TeamsRootView: View {
                             action: (L10n.t("Try again"), { Task { await model.refresh() } }))
         case .ready:
             switch model.pane {
+            case .home: NeedsYouPane(model: model)
+            case .tasks: TasksPane(model: model)
             case .agents:
                 if model.isEmpty {
                     CreateFirstAgentView(model: model)
@@ -104,6 +112,16 @@ struct TeamsRail: View {
 
     var body: some View {
         VStack(spacing: 14) {
+            item("tray.full.fill", L10n.t("Needs you"), .home)
+                .overlay(alignment: .topTrailing) {
+                    if !model.attention.isEmpty {
+                        Text(verbatim: model.attention.count > 99 ? "99+" : "\(model.attention.count)")
+                            .font(.system(size: 9, weight: .bold)).foregroundStyle(.white)
+                            .padding(.horizontal, 4).background(Capsule().fill(Color.accentColor))
+                            .accessibilityLabel(L10n.t("\(model.attention.count) need you"))
+                    }
+                }
+            item("checklist", L10n.t("Tasks"), .tasks)
             item("person.2.fill", L10n.t("Agents"), .agents)
             item("point.3.connected.trianglepath.dotted", L10n.t("Flows"), .flows)
             item("chart.pie.fill", L10n.t("Usage"), .usage)
