@@ -32,6 +32,28 @@ enum ReleaseNotes {
     static var all: [ReleaseNote] {
         [
             ReleaseNote(
+                version: "1.25.0",
+                headline: L10n.t("A main window for your agents: what needs you, their threads, swarms and questions."),
+                changes: [
+                    ReleaseNote.Change(
+                        title: L10n.t("Needs you"),
+                        detail: L10n.t("Questions to answer, work ready for review and failed runs, each with one button to deal with it.")
+                    ),
+                    ReleaseNote.Change(
+                        title: L10n.t("Agents and threads"),
+                        detail: L10n.t("Talk to persistent agents, switch which model runs them, and follow their swarms as live cards.")
+                    ),
+                    ReleaseNote.Change(
+                        title: L10n.t("Tasks"),
+                        detail: L10n.t("Everything in progress, ready, failed or resolved, with a checkbox to fold finished work away.")
+                    ),
+                    ReleaseNote.Change(
+                        title: L10n.t("Setup checklist"),
+                        detail: L10n.t("Shows which parts of Swarmaa are ready and how to fix the rest. Open it from Settings or the menu bar's Open Swarmaa.")
+                    ),
+                ]
+            ),
+            ReleaseNote(
                 version: "1.23.0",
                 headline: L10n.t("Show what is left instead of what is used, a Dock style, oMLX, and Claude and Codex on your own servers."),
                 changes: [
