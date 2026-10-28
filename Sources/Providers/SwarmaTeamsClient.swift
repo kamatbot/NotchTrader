@@ -170,9 +170,13 @@ struct TeamsSwarm: Decodable, Equatable, Identifiable {
         var taskID: String?
         var resultMessageID: String?
         var check: String?
+        var failureCode: String?
+        var failureDetail: String?
+        var orderIndex: Int?
         private enum CodingKeys: String, CodingKey {
             case id, title, needs, status, check
             case assigneeAgentID = "assignee_agent_id", taskID = "task_id", resultMessageID = "result_message_id"
+            case failureCode = "failure_code", failureDetail = "failure_detail", orderIndex = "order_index"
         }
         init(from decoder: Decoder) throws {
             let c = try decoder.container(keyedBy: CodingKeys.self)
@@ -184,6 +188,8 @@ struct TeamsSwarm: Decodable, Equatable, Identifiable {
             taskID = c.opt(String.self, .taskID); resultMessageID = c.opt(String.self, .resultMessageID)
             // A check is a name today; tolerate an object form by ignoring it.
             check = c.opt(String.self, .check)
+            failureCode = c.opt(String.self, .failureCode); failureDetail = c.opt(String.self, .failureDetail)
+            orderIndex = c.opt(Int.self, .orderIndex)
         }
     }
     struct Progress: Decodable, Equatable { var done: Int; var total: Int }
@@ -199,10 +205,12 @@ struct TeamsSwarm: Decodable, Equatable, Identifiable {
     var steps: [Step]
     var progress: Progress
     var version: Int?
+    var updatedAt: Date?
+    var closedAt: Date?
 
     private enum CodingKeys: String, CodingKey {
         case id, title, goal, scope, status, steps, progress, version
-        case ownerAgentID = "owner_agent_id", threadID = "thread_id"
+        case ownerAgentID = "owner_agent_id", threadID = "thread_id", updatedAt = "updated_at", closedAt = "closed_at"
     }
 
     init(from decoder: Decoder) throws {
@@ -212,12 +220,18 @@ struct TeamsSwarm: Decodable, Equatable, Identifiable {
         goal = c.opt(String.self, .goal); scope = c.opt(String.self, .scope)
         ownerAgentID = c.opt(String.self, .ownerAgentID); threadID = c.opt(String.self, .threadID)
         status = c.opt(String.self, .status) ?? "running"
-        steps = c.list(.steps)
+        steps = (c.list(.steps) as [Step]).enumerated()
+            .sorted { ($0.element.orderIndex ?? $0.offset, $0.offset) < ($1.element.orderIndex ?? $1.offset, $1.offset) }
+            .map(\.element)
         // Derived from the steps when an older payload leaves it out.
         progress = c.opt(Progress.self, .progress)
             ?? Progress(done: steps.filter { $0.status == "done" }.count, total: steps.count)
         version = c.opt(Int.self, .version)
+        updatedAt = c.opt(Date.self, .updatedAt); closedAt = c.opt(Date.self, .closedAt)
     }
+
+    /// The agents on steps that are running now.
+    var runningAssignees: [String] { steps.filter { $0.status == "running" }.compactMap(\.assigneeAgentID) }
 }
 
 /// The tasks one turn started, as the `run` card shows them.
@@ -266,10 +280,12 @@ struct TeamsQuestion: Decodable, Equatable, Identifiable {
     /// `open`, `answered` or `expired`.
     var status: String
     var answer: TeamsAnswer?
+    var createdAt: Date?
 
     private enum CodingKeys: String, CodingKey {
         case id, prompt, options, multi, status, answer
         case threadID = "thread_id", agentID = "agent_id", freeText = "free_text", swarmStepID = "swarm_step_id"
+        case createdAt = "created_at"
     }
 
     init(id: String, prompt: String, options: [String], multi: Bool, freeText: Bool, status: String = "open") {
@@ -288,6 +304,7 @@ struct TeamsQuestion: Decodable, Equatable, Identifiable {
         swarmStepID = c.opt(String.self, .swarmStepID)
         status = c.opt(String.self, .status) ?? "open"
         answer = c.opt(TeamsAnswer.self, .answer)
+        createdAt = c.opt(Date.self, .createdAt)
     }
 }
 
@@ -631,6 +648,49 @@ actor SwarmaTeamsClient {
         _ = try await raw("question_answer", input)
     }
 
+    // MARK: Attention and tasks
+
+    struct AttentionPage: Decodable {
+        var items: [TeamsAttentionItem]; var hasMore: Bool?; var nextCursor: String?
+        private enum CodingKeys: String, CodingKey { case items, hasMore = "has_more", nextCursor = "next_cursor" }
+    }
+
+    /// Everything waiting on the owner, newest first, every page.
+    // ponytail: stops at 5 pages (500 items); page on scroll if anyone ever has more.
+    func attentionList() async throws -> [TeamsAttentionItem] {
+        var items: [TeamsAttentionItem] = [], after: String?, pages = 0
+        repeat {
+            var input: [String: Any] = ["limit": 100]
+            input["after"] = after
+            let page = try await call("attention_list", input, as: AttentionPage.self)
+            items += page.items
+            after = page.hasMore == true && !page.items.isEmpty ? page.nextCursor : nil
+            pages += 1
+        } while after != nil && pages < 5
+        return items
+    }
+
+    func taskGet(id: String) async throws -> TeamsTask {
+        try await call("task_get", ["task_id": id], as: TaskWrapper.self).task
+    }
+
+    /// One page of a scope's tasks; `task_list` needs a scope.
+    func taskList(scope: String, status: String? = nil, resolved: Bool? = nil, limit: Int = 50) async throws -> [TeamsTask] {
+        var input: [String: Any] = ["scope": scope, "limit": min(limit, 100)]
+        input["status"] = status; input["resolved"] = resolved
+        return try await call("task_list", input, as: TaskPage.self).tasks
+    }
+
+    /// Folds a task into Resolved, or back out. The version comes from `task_get`.
+    func taskResolve(id: String, resolved: Bool, expectedVersion: Int) async throws {
+        _ = try await raw("task_resolve", ["task_id": id, "resolved": resolved, "expected_version": expectedVersion])
+    }
+
+    func taskContinue(id: String, expectedVersion: Int, instruction: String) async throws {
+        _ = try await raw("task_continue", ["task_id": id, "expected_version": expectedVersion,
+                                            "instruction": instruction, "idempotency_key": UUID().uuidString])
+    }
+
     // MARK: Stream
 
     /// `GET /api/stream?after=<cursor>`, reconnecting from the last cursor
@@ -707,6 +767,8 @@ actor SwarmaTeamsClient {
             message = (try? K(from: decoder).message) ?? (try? TeamsMessage(from: decoder))
         }
     }
+    private struct TaskWrapper: Decodable { var task: TeamsTask }
+    private struct TaskPage: Decodable { var tasks: [TeamsTask] }
     private struct ThreadPage: Decodable { var threads: [TeamsThread] }
     private struct SwarmPage: Decodable { var swarms: [TeamsSwarm] }
     private struct QuestionPage: Decodable { var questions: [TeamsQuestion] }
@@ -776,7 +838,10 @@ extension SwarmaCells {
     /// thread: the swarm and question items the notch shows (TEAMS.md §1).
     static let threadPrefix = "swarm:thread:"
     static func threadCellID(_ threadID: String) -> String { threadPrefix + threadID }
+    /// Drops a `/swarm/<id>` suffix: a swarm cell opens its thread too.
     static func threadID(fromCellID id: String) -> String? {
-        id.hasPrefix(threadPrefix) ? String(id.dropFirst(threadPrefix.count)) : nil
+        guard id.hasPrefix(threadPrefix) else { return nil }
+        let rest = id.dropFirst(threadPrefix.count)
+        return String(rest.split(separator: "/", maxSplits: 1).first ?? rest)
     }
 }
