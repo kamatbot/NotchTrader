@@ -359,6 +359,9 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         menu.addItem(showLimits)
         menu.addItem(.separator())
         menu.addItem(
+            withTitle: L10n.t("Open Swarmaa"), action: #selector(openTeams), keyEquivalent: ""
+        ).target = self
+        menu.addItem(
             withTitle: L10n.t("Refresh all"), action: #selector(refreshAll), keyEquivalent: "r"
         ).target = self
         if PhoneLink.isAvailable {
@@ -410,6 +413,7 @@ final class StatusItemController: NSObject, NSMenuDelegate {
     }
 
     @objc private func openSettings() { onOpenSettings() }
+    @objc private func openTeams() { AppDelegate.shared?.openTeams() }
     @objc private func reviewLessons() { AppDelegate.shared?.reviewLessons() }
     @objc private func runSetup() { AppDelegate.shared?.runSetup() }
     @objc private func openActivity() { Costs.showActivity() }
