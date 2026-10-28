@@ -84,10 +84,6 @@ final class NotchFleet {
     var onLook: (() -> Void)?
     var onRefreshProvider: ((String) async -> Void)?
     var onOpenSettings: (() -> Void)?
-    var onCancelSwarmTask: ((SwarmaCancelTarget) -> Void)?
-    var onReviewLessons: (() -> Void)?
-    /// A click on a swarm or question item: opens the main window on its thread.
-    var onOpenThread: ((String) -> Void)?
     /// The notch's answer to an update it offered.
     var onUpdateChoice: ((UpdateChoice) -> Void)?
     private var updatePrompt: UpdatePrompt?
@@ -539,9 +535,6 @@ final class NotchFleet {
         controller.onRefreshProvider = onRefreshProvider
         controller.onOpenSettings = onOpenSettings
         controller.model.onOpenSettings = onOpenSettings
-        controller.onCancelSwarmTask = onCancelSwarmTask
-        controller.onReviewLessons = onReviewLessons
-        controller.onOpenThread = onOpenThread
         controller.model.onFocusSession = onFocusSession
         controller.model.onUpdateChoice = { [weak self] in self?.onUpdateChoice?($0) }
         controller.apply(updatePrompt: updatePrompt)

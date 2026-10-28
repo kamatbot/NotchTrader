@@ -5,7 +5,7 @@ import Sparkle
 ///
 /// Checks at launch and on Sparkle's schedule, without the first-launch
 /// permission prompt Sparkle otherwise shows. What it finds is offered in the
-/// notch — "Swarmaa 1.19.0 is available", Update, Later — and, taken, is
+/// notch — "Codenotch 1.19.0 is available", Update, Later — and, taken, is
 /// downloaded and installed there with its progress, then relaunched. See
 /// `UpdatePrompt` and `NotchUpdateDriver`: Sparkle's own windows are never
 /// shown.
@@ -33,12 +33,12 @@ final class Updater: NSObject, ObservableObject, SPUUpdaterDelegate {
             switch self {
             case .idle:          return nil
             case .checking:      return L10n.t("Checking…")
-            case .upToDate:      return L10n.t("Swarmaa is up to date.")
+            case .upToDate:      return L10n.t("Codenotch is up to date.")
             case .found(let v):  return L10n.t("Version \(v) is available — the notch has it.")
             case .unreachable:
                 // The one people actually hit, and the one Sparkle's wording
                 // hides: nothing is wrong with the app or the machine.
-                return L10n.t("Couldn't reach the update server. Swarmaa will try again on its own — nothing is wrong with this copy.")
+                return L10n.t("Couldn't reach the update server. Codenotch will try again on its own — nothing is wrong with this copy.")
             case .failed(let why): return why
             }
         }
@@ -239,7 +239,7 @@ final class Updater: NSObject, ObservableObject, SPUUpdaterDelegate {
     /// Pure, so both endings can be tested without Sparkle.
     static func outcome(afterTimeoutFrom current: Outcome) -> Outcome {
         guard current == .checking else { return current }
-        return .failed(L10n.t("The update check didn't finish. Try again, or download the latest Swarmaa from hivinz.com."))
+        return .failed(L10n.t("The update check didn't finish. Try again, or download the latest Codenotch from hivinz.com."))
     }
 
     /// A cycle that ended without saying found or not found — the person

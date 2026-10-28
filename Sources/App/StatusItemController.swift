@@ -114,7 +114,7 @@ final class StatusItemController: NSObject, NSMenuDelegate {
 
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         item.button?.image = Self.icon()
-        item.button?.toolTip = L10n.t("Swarmaa")
+        item.button?.toolTip = L10n.t("Codenotch")
         // The pulse is a mask on the button's layer, and has to follow the
         // button's width as the item is laid out around a new image.
         item.button?.wantsLayer = true
@@ -223,7 +223,7 @@ final class StatusItemController: NSObject, NSMenuDelegate {
             pulse.clear()
             item.length = NSStatusItem.squareLength
             button.image = Self.icon()
-            button.toolTip = L10n.t("Swarmaa")
+            button.toolTip = L10n.t("Codenotch")
             button.setAccessibilityLabel(nil)
             return
         }
@@ -359,9 +359,6 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         menu.addItem(showLimits)
         menu.addItem(.separator())
         menu.addItem(
-            withTitle: L10n.t("Open Swarmaa"), action: #selector(openTeams), keyEquivalent: ""
-        ).target = self
-        menu.addItem(
             withTitle: L10n.t("Refresh all"), action: #selector(refreshAll), keyEquivalent: "r"
         ).target = self
         if PhoneLink.isAvailable {
@@ -373,17 +370,11 @@ final class StatusItemController: NSObject, NSMenuDelegate {
             withTitle: L10n.t("Activity…"), action: #selector(openActivity), keyEquivalent: ""
         ).target = self
         menu.addItem(
-            withTitle: L10n.t("Review Lessons…"), action: #selector(reviewLessons), keyEquivalent: ""
-        ).target = self
-        menu.addItem(
             withTitle: L10n.t("Settings…"), action: #selector(openSettings), keyEquivalent: ","
-        ).target = self
-        menu.addItem(
-            withTitle: L10n.t("Run Setup…"), action: #selector(runSetup), keyEquivalent: ""
         ).target = self
         menu.addItem(.separator())
         menu.addItem(
-            withTitle: L10n.t("Quit Swarmaa"), action: #selector(quit), keyEquivalent: "q"
+            withTitle: L10n.t("Quit Codenotch"), action: #selector(quit), keyEquivalent: "q"
         ).target = self
     }
 
@@ -407,15 +398,12 @@ final class StatusItemController: NSObject, NSMenuDelegate {
     }
 
 @objc private func connectPhone() {
-        if let appDelegate = AppDelegate.shared {
+        if let appDelegate = NSApp.delegate as? AppDelegate {
             appDelegate.openConnectPhone()
         }
     }
 
     @objc private func openSettings() { onOpenSettings() }
-    @objc private func openTeams() { AppDelegate.shared?.openTeams() }
-    @objc private func reviewLessons() { AppDelegate.shared?.reviewLessons() }
-    @objc private func runSetup() { AppDelegate.shared?.runSetup() }
     @objc private func openActivity() { Costs.showActivity() }
     @objc private func quit() { NSApp.terminate(nil) }
 

@@ -14,15 +14,6 @@ struct UsageResetCard: View {
 
     static let cardHeight: CGFloat = Design.px(210)
 
-    /// The base height has a spare line (the "Next reset" row); a swarm
-    /// update's detail takes that line and grows the card for any more, up to 4.
-    static func height(for event: UsageResetEvent) -> CGFloat {
-        guard let detail = event.noticeDetail, !detail.isEmpty else { return cardHeight }
-        let lines = min(NotchLayout.bodyTextHeight(detail), 4 * NotchLayout.cardBodyLineHeight)
-        return cardHeight + lines - NotchLayout.cardBodyLineHeight
-    }
-    private var height: CGFloat { Self.height(for: event) }
-
     private var glassy: Bool { surfaceStyle.isGlass && !reduceTransparency }
     private var secondaryInk: Color {
         TooltipGlassContrast.secondaryInk(surfaceStyle: surfaceStyle, colorScheme: colorScheme,
@@ -37,7 +28,7 @@ struct UsageResetCard: View {
         let size = TooltipTail.size(for: direction)
         switch direction {
         case .leading, .trailing:
-            let maxOffset = max(0, (height / 2) - NotchLayout.cardCorner - (size.height / 2))
+            let maxOffset = max(0, (Self.cardHeight / 2) - NotchLayout.cardCorner - (size.height / 2))
             return min(max(tailOffset, -maxOffset), maxOffset)
         case .up, .down:
             let maxOffset = max(0, (NotchLayout.cardWidth / 2) - NotchLayout.cardCorner - (size.width / 2))
@@ -89,7 +80,6 @@ struct UsageResetCard: View {
     }
 
     private var statusColor: Color {
-        if event.noticeIsProblem { return Palette.critical }
         switch event.kind {
         case .reset:
             return Palette.ample
@@ -123,7 +113,7 @@ struct UsageResetCard: View {
         ZStack(alignment: .topLeading) {
             RoundedRectangle(cornerRadius: NotchLayout.cardCorner, style: .circular)
                 .fill(surfaceFill)
-                .frame(width: NotchLayout.cardWidth, height: height)
+                .frame(width: NotchLayout.cardWidth, height: Self.cardHeight)
 
             VStack(alignment: .leading, spacing: 0) {
                 HStack(alignment: .center, spacing: NotchLayout.headerGap) {
@@ -171,15 +161,6 @@ struct UsageResetCard: View {
                 }
                 .padding(.top, NotchLayout.headerToBlock)
 
-                if let detail = event.noticeDetail, !detail.isEmpty {
-                    Text(detail)
-                        .font(Typography.cardBody)
-                        .foregroundStyle(secondaryInk)
-                        .lineLimit(4)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .padding(.top, Design.px(8))
-                }
-
                 if let resetsAt = event.resetsAt {
                     Text("\(resetTimePrefix) \(resetsAt.formatted(date: .omitted, time: .shortened))")
                         .font(Typography.cardBody)
@@ -189,12 +170,10 @@ struct UsageResetCard: View {
                 }
             }
             .padding(NotchLayout.cardPadding)
-            .frame(width: NotchLayout.cardWidth, height: height, alignment: .topLeading)
+            .frame(width: NotchLayout.cardWidth, height: Self.cardHeight, alignment: .topLeading)
         }
-        .frame(width: NotchLayout.cardWidth, height: height, alignment: .top)
+        .frame(width: NotchLayout.cardWidth, height: Self.cardHeight, alignment: .top)
         .clipShape(RoundedRectangle(cornerRadius: NotchLayout.cardCorner, style: .circular))
-        .contentShape(RoundedRectangle(cornerRadius: NotchLayout.cardCorner, style: .circular))
-        .onTapGesture { onDismiss?() }
         .overlay {
             if reduceTransparency {
                 RoundedRectangle(cornerRadius: NotchLayout.cardCorner, style: .circular)

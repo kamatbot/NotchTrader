@@ -35,11 +35,11 @@ struct WhatsNewView: View {
                     .frame(width: 60, height: 60)
                     .padding(.bottom, 8)
             }
-            Text(L10n.t("What's new in Swarmaa"))
+            Text(L10n.t("What's new in Codenotch"))
                 .font(.system(size: 19, weight: .semibold))
                 .multilineTextAlignment(.center)
             Text(L10n.t("Version \(note.version)"))
-                .font(.callout)
+                .font(.caption)
                 .foregroundStyle(.tertiary)
             Text(note.headline)
                 .font(.callout)

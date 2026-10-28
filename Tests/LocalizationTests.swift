@@ -710,8 +710,8 @@ final class LocalizationTests: XCTestCase {
             "Pengaturan…"
         )
         XCTAssertEqual(
-            L10n.t("Quit Swarmaa", locale: indonesian),
-            "Keluar dari Swarmaa"
+            L10n.t("Quit Codenotch", locale: indonesian),
+            "Keluar dari Codenotch"
         )
     }
 

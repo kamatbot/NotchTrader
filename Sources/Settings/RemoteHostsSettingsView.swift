@@ -33,7 +33,7 @@ struct RemoteHostsSettingsView: View {
                             Text(L10n.t("Remote Hosts"))
                                 .font(.title3.weight(.semibold))
                             Text(L10n.t("Claude and Codex accounts on servers you reach over SSH."))
-                                .font(.callout)
+                                .font(.subheadline)
                                 .foregroundStyle(.secondary)
                         }
                         Spacer()
@@ -49,7 +49,7 @@ struct RemoteHostsSettingsView: View {
                     }
 
                     Text(L10n.t("SSH key auth must already work — polls run on a timer and never stop at a password prompt."))
-                        .font(.callout)
+                        .font(.caption)
                         .foregroundStyle(.secondary)
 
                     if isEditing {
@@ -58,7 +58,7 @@ struct RemoteHostsSettingsView: View {
 
                     if preferences.remoteHosts.isEmpty, !isEditing {
                         Text(L10n.t("No servers yet. Add one above and its ring appears in the notch."))
-                            .font(.callout)
+                            .font(.subheadline)
                             .foregroundStyle(.secondary)
                     } else {
                         ForEach(preferences.remoteHosts) { host in
@@ -127,12 +127,12 @@ struct RemoteHostsSettingsView: View {
                     ProgressView()
                         .controlSize(.small)
                     Text(L10n.t("Probing the server…"))
-                        .font(.callout)
+                        .font(.caption)
                         .foregroundStyle(.secondary)
                 }
             case .failed(let message):
                 Text(message)
-                    .font(.callout)
+                    .font(.caption)
                     .foregroundStyle(.red)
                     .fixedSize(horizontal: false, vertical: true)
             case nil:
@@ -173,16 +173,16 @@ struct RemoteHostsSettingsView: View {
                     .font(.headline)
                 if host.isConfigured {
                     Text(host.destination)
-                        .font(.callout)
+                        .font(.caption)
                         .foregroundStyle(.secondary)
                 } else {
                     Text(L10n.t("Needs a host and user"))
-                        .font(.callout)
+                        .font(.caption)
                         .foregroundStyle(.orange)
                 }
                 if let verified = lastVerified[host.id] {
                     Text(verified)
-                        .font(.callout)
+                        .font(.caption)
                         .foregroundStyle(.green)
                 }
             }

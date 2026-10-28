@@ -1,6 +1,6 @@
 name: Codenotch
 options:
-  bundleIdPrefix: app.swarmaa
+  bundleIdPrefix: com.vinz
   deploymentTarget:
     macOS: "15.0"
   createIntermediateGroups: true
@@ -14,8 +14,8 @@ settings:
     # Sources/Info.plist reads both from here — hardcoding them there instead
     # silently pins every build to one version, so no customer ever sees an
     # update. Bump CURRENT_PROJECT_VERSION on every release.
-    MARKETING_VERSION: "1.25.0"
-    CURRENT_PROJECT_VERSION: "28"
+    MARKETING_VERSION: "1.23.0"
+    CURRENT_PROJECT_VERSION: "25"
     # Signed with a stable identity on purpose. The app reads Claude Code's
     # OAuth token out of the login keychain, and the keychain's ACL remembers
     # *which signed binary* was allowed. Ad-hoc or unsigned builds get a new
@@ -55,14 +55,6 @@ targets:
           # copy any unrecognised file into the app bundle's Resources, and a
           # developer README has no business shipping to users.
           - "Vendor/**/README.md"
-    # Embeds and signs the Swarmaa runtime; see Scripts/embed-runtime.sh and the
-    # SWARMAA_RUNTIME_SRC variable (default: the service repo's build/runtime).
-    preBuildScripts:
-      - name: Embed Swarmaa runtime
-        script: bash "$SRCROOT/Scripts/embed-runtime.sh"
-        basedOnDependencyAnalysis: false
-        inputFiles:
-          - $(SRCROOT)/Scripts/embed-runtime.sh
     dependencies:
       - package: Sparkle
       - package: SwiftNIO
@@ -76,8 +68,8 @@ targets:
         # notch is ambient, but the *app* still has to be findable: without a
         # Dock tile there is nothing to click to open it, nothing in Cmd-Tab,
         # and no obvious way to reach settings or quit.
-        CFBundleName: Swarmaa
-        CFBundleDisplayName: Swarmaa
+        CFBundleName: NotchTrader
+        CFBundleDisplayName: NotchTrader
         CFBundleDevelopmentRegion: en
         CFBundleLocalizations:
           - en
@@ -105,7 +97,7 @@ targets:
           NSExceptionDomains:
             "100.64.0.0/10":
               NSExceptionAllowsInsecureHTTPLoads: true
-        NSLocalNetworkUsageDescription: "Swarmaa answers your phone on this network so it can show your usage."
+        NSLocalNetworkUsageDescription: "Codenotch answers your phone on this network so it can show your usage."
         # --- Sparkle -------------------------------------------------------
         # Beside the download itself, on hivinz.com. It used to point at a
         # GitHub Pages URL for a repo that was never created, so every check
@@ -130,11 +122,7 @@ targets:
         SUScheduledCheckInterval: 86400
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: app.swarmaa.notch
-        # The app is Swarmaa; the target and Swift module keep the name Codenotch
-        # so every `import Codenotch` and the project path stay as they are.
-        PRODUCT_NAME: Swarmaa
-        PRODUCT_MODULE_NAME: Codenotch
+        PRODUCT_BUNDLE_IDENTIFIER: com.vinz.codenotch
         GENERATE_INFOPLIST_FILE: "NO"
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         SWIFT_EMIT_LOC_STRINGS: "YES"
@@ -156,11 +144,8 @@ targets:
       - target: Codenotch
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: app.swarmaa.notch.tests
+        PRODUCT_BUNDLE_IDENTIFIER: com.vinz.codenotch.tests
         GENERATE_INFOPLIST_FILE: "YES"
-        # The host app's product is Swarmaa.app (PRODUCT_NAME), not the target name.
-        TEST_HOST: "$(BUILT_PRODUCTS_DIR)/Swarmaa.app/Contents/MacOS/Swarmaa"
-        BUNDLE_LOADER: "$(TEST_HOST)"
 
 schemes:
   Codenotch:

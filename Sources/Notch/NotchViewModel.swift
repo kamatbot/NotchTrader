@@ -1351,7 +1351,10 @@ final class NotchViewModel: ObservableObject {
         cardHeightEvaluationCount += 1
         #endif
         return snapshots.map { snapshot in
-            NotchLayout.cardHeight(windowCount: snapshot.windows.count,
+            if snapshot.kind == .stockTicker {
+                return NotchLayout.opsOddsCardHeight
+            }
+            return NotchLayout.cardHeight(windowCount: snapshot.windows.count,
                 groupCount: Set(snapshot.windows.compactMap(\.group)).count,
                 moneyWindowCount: snapshot.windows.filter { $0.money != nil }.count,
                 moneyResetCount: snapshot.windows.filter { $0.money != nil && $0.resetsAt != nil }.count,
@@ -1370,7 +1373,7 @@ final class NotchViewModel: ObservableObject {
                 compactRowCount: snapshot.compactRowCount,
                 showsDeepSeekPricing: deepSeekPricingEnabled,
                 costRows: costRows(for: snapshot),
-                swarmActivity: snapshot.swarmActivity)
+                isStockTicker: snapshot.kind == .stockTicker)
         }.max() ?? 0
     }
 

@@ -42,7 +42,7 @@ final class ThresholdNotifier {
     }
 
     private func observe(_ snapshot: ProviderSnapshot) {
-        guard snapshot.kind != .swarm else { return }
+        guard snapshot.kind != .stockTicker else { return }
         // An archived reading is not a baseline. At launch the store publishes
         // what it remembered from the last run, marked stale, and the first
         // live fetch follows seconds later; measured against the archive it
@@ -57,7 +57,7 @@ final class ThresholdNotifier {
         let level = percent >= 100 ? 100 : percent >= 80 ? 80 : 0
 
         // The first reading only records. Every provider arrives with no
-        // history when Swarmaa launches, and after a restart that reading is
+        // history when Codenotch launches, and after a restart that reading is
         // the archived one, often already past a threshold; treating it as a
         // crossing rang "limit reached" on every start.
         guard let previous = crossed[snapshot.id] else {

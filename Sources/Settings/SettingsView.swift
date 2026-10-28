@@ -26,7 +26,7 @@ extension View {
 /// crossing-and-notification machinery it switches is Notifications' to
 /// explain.
 private enum SettingsSection: String, CaseIterable, Identifiable, Hashable {
-    case swarma, accounts, phone, deepseek, ollama, lmstudio, omlx, customEndpoints, remoteHosts, appearance, notifications, costs, general
+    case tickers, accounts, phone, deepseek, ollama, lmstudio, omlx, customEndpoints, remoteHosts, appearance, notifications, costs, general
 
     /// The sections the sidebar lists; Phone only once pairing is offered.
     static var visible: [SettingsSection] {
@@ -47,7 +47,7 @@ private enum SettingsSection: String, CaseIterable, Identifiable, Hashable {
 
     var title: String {
         switch self {
-        case .swarma:        return "Swarmaa"   // a product name, the same in every language
+        case .tickers:       return "Tickers & OpsOdds"
         case .accounts:      return L10n.t("Accounts")
         case .phone:         return L10n.t("Phone")
         case .deepseek:      return "DeepSeek"
@@ -78,7 +78,7 @@ private enum SettingsSection: String, CaseIterable, Identifiable, Hashable {
     /// The line under the pane's title.
     var subtitle: String {
         switch self {
-        case .swarma:        return L10n.t("Your local agents and swarms, in the notch.")
+        case .tickers:       return "Stock tickers, Schwab real-time quotes, and OpsOdds scores."
         case .accounts:      return L10n.t("Choose which providers the notch reads.")
         case .phone:         return L10n.t("See your usage on your phone.")
         case .deepseek:      return L10n.t("Peak and off-peak pricing for your DeepSeek spend.")
@@ -88,7 +88,7 @@ private enum SettingsSection: String, CaseIterable, Identifiable, Hashable {
         case .customEndpoints: return L10n.t("OpenAI-compatible APIs, local runtimes and custom proxies.")
         case .remoteHosts:    return L10n.t("Claude and Codex accounts on servers you reach over SSH.")
         case .appearance:    return L10n.t("How the notch looks and where it sits.")
-        case .notifications: return L10n.t("What Swarmaa tells you, and when.")
+        case .notifications: return L10n.t("What Codenotch tells you, and when.")
         case .costs:         return L10n.t("What each project spent of each login's allowance.")
         case .general:       return L10n.t("Startup, updates and everything else.")
         }
@@ -96,7 +96,7 @@ private enum SettingsSection: String, CaseIterable, Identifiable, Hashable {
 
     var icon: String {
         switch self {
-        case .swarma:        return "point.3.connected.trianglepath.dotted"
+        case .tickers:       return "chart.xyaxis.line"
         case .accounts:      return "person.crop.circle.fill"
         case .phone:         return "iphone"
         case .deepseek:      return "chart.line.uptrend.xyaxis"
@@ -117,7 +117,7 @@ private enum SettingsSection: String, CaseIterable, Identifiable, Hashable {
     /// icons are not.
     var tint: Color {
         switch self {
-        case .swarma:        return .purple
+        case .tickers:       return .green
         case .accounts:      return .blue
         case .phone:         return .green
         case .deepseek:      return .orange
@@ -307,7 +307,7 @@ private struct SettingsSidebarRow: View {
                 }
         } else {
             Image(systemName: section.icon)
-                .font(.system(size: indent ? 13 : 14, weight: .regular))
+                .font(.system(size: indent ? 12 : 13, weight: .regular))
                 .symbolEffect(.bounce, value: bounce)
         }
     }
@@ -362,7 +362,7 @@ private struct SettingsQuitRow: View {
                 Image(systemName: "power")
                     .font(.system(size: 12, weight: .regular))
                     .frame(width: 18)
-                Text(L10n.t("Quit Swarmaa"))
+                Text(L10n.t("Quit Codenotch"))
                     .font(.system(size: 13, weight: .regular))
             }
             .foregroundStyle(isHovered ? Self.hoverRed : Color.white.opacity(0.55))
@@ -479,7 +479,6 @@ struct SettingsView: View {
     var previewResetAlert: (() -> Void)? = nil
     var previewSessionLimitAlert: (() -> Void)? = nil
     var previewWeeklyLimitAlert: (() -> Void)? = nil
-    var previewSwarmaUpdate: (() -> Void)? = nil
     var sendTestNotification: (() -> Void)? = nil
     @Environment(\.codenotchReduceTransparency) private var reduceTransparency
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -606,7 +605,7 @@ struct SettingsView: View {
                     .resizable()
                     .interpolation(.high)
                     .frame(width: 22, height: 22)
-                Text("Swarmaa")
+                Text("Codenotch")
                     .font(.system(size: 14, weight: .semibold))
                     .foregroundStyle(.white)
             }
@@ -645,7 +644,7 @@ struct SettingsView: View {
             VStack(alignment: .leading, spacing: 6) {
                 SettingsQuitRow(quit: quit)
                 HStack(spacing: 8) {
-                    Text("Swarmaa \(updater.currentVersion)")
+                    Text("Codenotch \(updater.currentVersion)")
                         .font(.system(size: 11, weight: .regular))
                         .foregroundStyle(.white.opacity(0.32))
                     Spacer(minLength: 0)
@@ -723,7 +722,7 @@ struct SettingsView: View {
     @ViewBuilder
     private func paneContent(for section: SettingsSection) -> some View {
         switch section {
-        case .swarma:        SwarmaSettingsView(preferences: preferences, previewSwarmaUpdate: previewSwarmaUpdate)
+        case .tickers:       TickersSettingsView(preferences: preferences)
         case .accounts:      accountsPane
         case .phone:         phonePane
         case .costs:         CostSettingsPane()
@@ -774,7 +773,7 @@ struct SettingsView: View {
                 if needsSetup { setupNote }
                 Toggle(L10n.t("Auto-order based on remaining usage"), isOn: $preferences.autoOrderByRemaining)
                 Text(L10n.t("The notch sorts rings by what is left of the window that leads each ring, most first. A high number that cannot be spent yet sinks below usable accounts but stays above empty ones. This list keeps your manual order, which breaks ties."))
-                    .font(.callout)
+                    .font(.caption)
                     .foregroundStyle(.tertiary)
                     .fixedSize(horizontal: false, vertical: true)
                 ForEach(connected) { account in
@@ -791,21 +790,21 @@ struct SettingsView: View {
                 }
                 if connected.isEmpty {
                     Text(L10n.t("Nothing is connected, so the notch has no rings to draw."))
-                        .font(.callout)
+                        .font(.caption)
                         .foregroundStyle(.tertiary)
                         .fixedSize(horizontal: false, vertical: true)
                 } else if !connected.isEmpty {
                     Text(preferences.autoOrderByRemaining
                          ? L10n.t("Auto-order is on: the notch sorts these by remaining usage. Dragging still sets the order ties break in.")
                          : L10n.t("The notch draws these in this order. Drag one by its handle to move it."))
-                        .font(.callout)
+                        .font(.caption)
                         .foregroundStyle(.tertiary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 // Beside the switches it explains, not stranded at the end of
                 // the page.
-                Text(L10n.t("Most readings are borrowed from a tool that already holds the account. DeepSeek and MiniMax are the exceptions: clicking Sign in opens a Swarmaa window for that account, and signing out here clears only that session and its saved reading."))
-                    .font(.callout)
+                Text(L10n.t("Most readings are borrowed from a tool that already holds the account. DeepSeek and MiniMax are the exceptions: clicking Sign in opens a Codenotch window for that account, and signing out here clears only that session and its saved reading."))
+                    .font(.caption)
                     .foregroundStyle(.tertiary)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -829,7 +828,7 @@ struct SettingsView: View {
                     // Says what switching one back on will do, which is the
                     // only question this group raises.
                     Text(L10n.t("These have no ring to place. Switch one on and it joins the end of the list above."))
-                        .font(.callout)
+                        .font(.caption)
                         .foregroundStyle(.tertiary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -842,9 +841,9 @@ struct SettingsView: View {
         .animation(.snappy(duration: 0.25), value: preferences.disabledModels)
     }
 
-    // One pane, because they are one question: what Swarmaa looks like and
+    // One pane, because they are one question: what Codenotch looks like and
     // where it turns up. Split across several it read as unrelated settings,
-    // and "Where Swarmaa appears" was a header long enough to look like a
+    // and "Where Codenotch appears" was a header long enough to look like a
     // warning.
     private var appearancePane: some View {
         Form {
@@ -855,7 +854,7 @@ struct SettingsView: View {
                 .pickerStyle(.segmented)
 
                 Text(preferences.resetTimeFormat.explanation)
-                    .font(.callout)
+                    .font(.caption)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
 
@@ -865,13 +864,13 @@ struct SettingsView: View {
                 .pickerStyle(.segmented)
 
                 Text(preferences.busyIndicatorStyle.explanation)
-                    .font(.callout)
+                    .font(.caption)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
 
                 Toggle(L10n.t("Show usage pace"), isOn: $preferences.showUsagePace)
                 Text(L10n.t("Compares each timed allowance with the time left until reset, showing quota in deficit or held in reserve."))
-                    .font(.callout)
+                    .font(.caption)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
 
@@ -882,7 +881,7 @@ struct SettingsView: View {
                         }
                     }
                 Text(L10n.t("The ring still follows the main Codex window. Spark and code review stay in the hover card."))
-                    .font(.callout)
+                    .font(.caption)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
 
@@ -892,7 +891,7 @@ struct SettingsView: View {
                 .pickerStyle(.segmented)
 
                 Text(preferences.weeklyRing.explanation)
-                    .font(.callout)
+                    .font(.caption)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
 
@@ -901,28 +900,28 @@ struct SettingsView: View {
                 Text(sizeIsDecidedByTheHardware
                      ? L10n.t("Merged into your Mac's own notch the bar is exactly as deep as the cutout, so a ring and a percentage under it have to share that depth — showing it draws the rings smaller. Turn it off for the largest rings the cutout has room for.")
                      : L10n.t("The figure under each ring. Turn it off for rings alone; the number is still a hover away in the card."))
-                    .font(.callout)
+                    .font(.caption)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
 
                 Toggle(L10n.t("Show remaining instead of used"),
                        isOn: $preferences.showsRemainingInNotch)
                 Text(L10n.t("The notch reads what is left — the figures, the rings' sweep, and the card's bars and percentages. Colours still judge by what is spent, so a nearly empty ring still reads red."))
-                    .font(.callout)
+                    .font(.caption)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
 
                 Toggle(L10n.t("Shut rings when a window is spent"),
                        isOn: $preferences.shutRingsWhenSpent)
                 Text(L10n.t("When the 5-hour or the weekly window is spent, both rings say shut even where the other window still has room — dark grey where the notch reads what is left, red where it reads what is spent."))
-                    .font(.callout)
+                    .font(.caption)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
 
                 Toggle(L10n.t("Hide accounts with nothing left to spend"),
                        isOn: $preferences.hideDepletedAccounts)
                 Text(L10n.t("When the 5-hour or the weekly window is at 0% remaining, the account leaves the notch until a window resets. Stale readings stay: an old number is not proof the account is empty."))
-                    .font(.callout)
+                    .font(.caption)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
 
@@ -933,13 +932,13 @@ struct SettingsView: View {
 
                 Toggle(L10n.t("Weekly limit as the main ring"), isOn: $preferences.weeklyHeadline)
                 Text(L10n.t("For every provider with a weekly limit beside a shorter one, the main ring shows the week. The shorter window moves to the thin ring and the card. Alerts, the menu bar and providers with no weekly limit are unchanged, and Claude's daily pace ring still leads when it is on."))
-                    .font(.callout)
+                    .font(.caption)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
 
                 Toggle(L10n.t("Claude daily pace ring"), isOn: $preferences.claudeDailyPaceRing)
                 Text(L10n.t("Claude's main ring shows today's share of the weekly limit — a seventh a day, counted from the weekly reset — instead of the session. The session moves to the thin ring and the card; alerts follow the daily ring."))
-                    .font(.callout)
+                    .font(.caption)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
 
@@ -949,13 +948,13 @@ struct SettingsView: View {
                 .pickerStyle(.segmented)
 
                 Text(preferences.notchVisibility.explanation)
-                    .font(.callout)
+                    .font(.caption)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
 
                 Toggle(L10n.t("Fold for full-screen apps"), isOn: $preferences.foldsForFullScreen)
                 Text(L10n.t("The notch folds away while a full-screen app is frontmost, and returns when you leave it. Off keeps it in place over full-screen apps."))
-                    .font(.callout)
+                    .font(.caption)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
 
@@ -965,7 +964,7 @@ struct SettingsView: View {
                 .pickerStyle(.segmented)
 
                 Text(preferences.notchEdge.explanation)
-                    .font(.callout)
+                    .font(.caption)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
 
@@ -979,7 +978,7 @@ struct SettingsView: View {
                     .pickerStyle(.segmented)
 
                     Text(preferences.notchSurfaceStyle.explanation)
-                        .font(.callout)
+                        .font(.caption)
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -997,7 +996,7 @@ struct SettingsView: View {
                 // notch is not moving.
                 if sizeIsDecidedByTheHardware {
                     Text(L10n.t("On this edge your notch is merged into your Mac's own cutout, and the cutout sets its size. This has no effect here — it is waiting for you to move the notch to another edge."))
-                        .font(.callout)
+                        .font(.caption)
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -1027,7 +1026,7 @@ struct SettingsView: View {
                     }
 
                     Text(L10n.t("Scales the whole surface — rings, text and tooltip together — so the proportions stay as drawn. 100% is the size the notch was designed at."))
-                        .font(.callout)
+                        .font(.caption)
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                 } else {
@@ -1038,7 +1037,7 @@ struct SettingsView: View {
                     .labelsHidden()
 
                     Text(preferences.notchSize.explanation)
-                        .font(.callout)
+                        .font(.caption)
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -1050,7 +1049,7 @@ struct SettingsView: View {
                 // far, short of dragging it out again.
                 HStack {
                     Text(L10n.t("Hold ⌥ and drag the notch to slide it along its edge. Each edge remembers where you left it."))
-                        .font(.callout)
+                        .font(.caption)
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                     Spacer()
@@ -1081,7 +1080,7 @@ struct SettingsView: View {
                 .pickerStyle(.segmented)
 
                 Text(preferences.notchScope.explanation)
-                    .font(.callout)
+                    .font(.caption)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
 
@@ -1101,7 +1100,7 @@ struct SettingsView: View {
                     }
 
                     Text(displayExplanation)
-                        .font(.callout)
+                        .font(.caption)
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -1115,7 +1114,7 @@ struct SettingsView: View {
                     .pickerStyle(.segmented)
 
                     Text(preferences.colorTransitionStyle.explanation)
-                        .font(.callout)
+                        .font(.caption)
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -1141,7 +1140,7 @@ struct SettingsView: View {
                     // than left for the user to notice by moving it and seeing nothing change.
                     if preferences.colorTransitionStyle == .ramp {
                         Text(L10n.t("With the colour ramp on, this still marks critical elsewhere in the app, but the ring's own red only arrives at 100%."))
-                            .font(.callout)
+                            .font(.caption)
                             .foregroundStyle(.secondary)
                             .fixedSize(horizontal: false, vertical: true)
                     }
@@ -1183,7 +1182,7 @@ struct SettingsView: View {
                 .pickerStyle(.segmented)
 
                 Text(preferences.appPresence.explanation)
-                    .font(.callout)
+                    .font(.caption)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
 
@@ -1201,7 +1200,7 @@ struct SettingsView: View {
                 .pickerStyle(.menu)
 
                 Text(preferences.language.explanation)
-                    .font(.callout)
+                    .font(.caption)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -1218,7 +1217,7 @@ struct SettingsView: View {
     private var menuBarLimitRows: some View {
         Toggle(L10n.t("Show limit information in menu bar"), isOn: $preferences.showsLimitsInMenuBar)
         Text(L10n.t("Swaps the icon for each chosen provider's five-hour limit — how much is used and how long until it resets."))
-            .font(.callout)
+            .font(.caption)
             .foregroundStyle(.secondary)
             .fixedSize(horizontal: false, vertical: true)
 
@@ -1226,7 +1225,7 @@ struct SettingsView: View {
             Toggle(L10n.t("Show weekly limit in menu bar"),
                    isOn: $preferences.showsWeeklyLimitInMenuBar)
             Text(L10n.t("Adds a compact weekly-usage ring around each chosen provider that publishes it."))
-                .font(.callout)
+                .font(.caption)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
 
@@ -1245,13 +1244,13 @@ struct SettingsView: View {
                 }
                 .toggleStyle(.switch)
                 .controlSize(.small)
-                .help(L10n.t("Shows \(choice.name)'s five-hour limit in the menu bar. Swarmaa reads it either way."))
+                .help(L10n.t("Shows \(choice.name)'s five-hour limit in the menu bar. Codenotch reads it either way."))
             }
 
             Text(menuBarChoices.isEmpty
-                 ? L10n.t("Nothing Swarmaa reads has a five-hour limit to show yet. Claude and Codex do — switch one on in Accounts.")
-                 : L10n.t("Leaving a provider out keeps it off the menu bar only — Swarmaa still reads it. With none chosen, the icon comes back."))
-                .font(.callout)
+                 ? L10n.t("Nothing Codenotch reads has a five-hour limit to show yet. Claude and Codex do — switch one on in Accounts.")
+                 : L10n.t("Leaving a provider out keeps it off the menu bar only — Codenotch still reads it. With none chosen, the icon comes back."))
+                .font(.caption)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
 
@@ -1260,7 +1259,7 @@ struct SettingsView: View {
             // hides a status item that does not fit rather than squeezing it.
             if menuBarChoices.filter({ preferences.isInMenuBar($0.id) }).count > StatusItemSummary.fullEntryLimit {
                 Text(L10n.t("Past two, each shows its share alone and the countdowns move to the tooltip. Past four, the rest are in the menu."))
-                    .font(.callout)
+                    .font(.caption)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -1280,16 +1279,16 @@ struct SettingsView: View {
                 .pickerStyle(.segmented)
 
                 Text(preferences.notificationChannel.explanation)
-                    .font(.callout)
+                    .font(.caption)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
 
                 if let sendTestNotification {
                     Button(L10n.t("Send a test")) { sendTestNotification() }
                     Text(preferences.notificationChannel == .mac
-                         ? L10n.t("Opens System Settings when banners are off for Swarmaa.")
+                         ? L10n.t("Opens System Settings when banners are off for Codenotch.")
                          : L10n.t("The notch opens for a moment, with the session sound."))
-                        .font(.callout)
+                        .font(.caption)
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -1309,7 +1308,7 @@ struct SettingsView: View {
                 .disabled(!preferences.announceSessionEnd)
 
                 Text(preferences.peekDuration.explanation)
-                    .font(.callout)
+                    .font(.caption)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
 
@@ -1324,13 +1323,13 @@ struct SettingsView: View {
                 SoundRow(label: L10n.t("Waiting on you"), name: $preferences.sessionBlockedSoundName,
                          pickerEnabled: preferences.sessionEndSound)
 
-                Text(L10n.t("Swarmaa already knows the moment an agent stops working or stops to ask you something. Clicking the notch while it is open brings that session's app to the front — the app, not the tab: only some terminals let anything outside them choose a tab, so the tooltip names the session instead."))
-                    .font(.callout)
+                Text(L10n.t("Codenotch already knows the moment an agent stops working or stops to ask you something. Clicking the notch while it is open brings that session's app to the front — the app, not the tab: only some terminals let anything outside them choose a tab, so the tooltip names the session instead."))
+                    .font(.caption)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
 
                 Text(L10n.t("The sound plays on the ordinary output, not the interface sound-effects channel — so it is still heard with \u{201C}Play user interface sound effects\u{201D} switched off in System Settings → Sound."))
-                    .font(.callout)
+                    .font(.caption)
                     .foregroundStyle(.tertiary)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -1358,7 +1357,7 @@ struct SettingsView: View {
                 }
 
                 Text(L10n.t("Displays a notification card from the side of the notch when a provider's session or weekly usage limit is reached."))
-                    .font(.callout)
+                    .font(.caption)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -1378,7 +1377,7 @@ struct SettingsView: View {
                 }
 
                 Text(L10n.t("Displays a notification card from the side of the notch when a provider's usage limit resets."))
-                    .font(.callout)
+                    .font(.caption)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -1389,7 +1388,7 @@ struct SettingsView: View {
             // belongs to this pane's subject.
             Section(L10n.t("Threshold alerts")) {
                 Text(L10n.t("A system notification the moment a provider's headline limit crosses 80%, and again at 100% — once per crossing, and again only after the window rolls over. Mute one from the bell beside its row in Accounts."))
-                    .font(.callout)
+                    .font(.caption)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -1397,7 +1396,7 @@ struct SettingsView: View {
         .formStyle(.grouped)
     }
 
-    // Startup and updates together: both are about what Swarmaa does
+    // Startup and updates together: both are about what Codenotch does
     // without being asked, and one switch under its own header looked
     // like an oversight rather than a section.
     private var generalPane: some View {
@@ -1405,10 +1404,10 @@ struct SettingsView: View {
             // No title on the group: the pane's own header above already
             // says "General", and repeating it here would say it twice.
             Section {
-                Toggle(L10n.t("Open Swarmaa at login"), isOn: $preferences.launchAtLogin)
+                Toggle(L10n.t("Open Codenotch at login"), isOn: $preferences.launchAtLogin)
                 if let problem = preferences.launchAtLoginProblem {
                     Text(problem)
-                        .font(.callout)
+                        .font(.caption)
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -1426,7 +1425,7 @@ struct SettingsView: View {
                     // background updater and something that looks like it is
                     // hiding.
                     Text(L10n.t("Version \(updater.currentVersion). New versions are offered in the notch, and install when you choose Update."))
-                        .font(.callout)
+                        .font(.caption)
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                     Spacer(minLength: 0)
@@ -1445,7 +1444,7 @@ struct SettingsView: View {
                 // names no cause and offers nothing to do about it.
                 if let message = updater.outcome.message {
                     Text(message)
-                        .font(.callout)
+                        .font(.caption)
                         .foregroundStyle(
                             updater.outcome == .unreachable ? .orange : .secondary
                         )
@@ -1457,11 +1456,11 @@ struct SettingsView: View {
                 Toggle(L10n.t("Ask the provider every time you look"),
                        isOn: $preferences.asksProviderOnLook)
                 Text(L10n.t("Pointing at a ring, or opening the menu bar menu, re-reads the limit from the provider itself rather than from a reading cached moments ago. Off, a look still asks for a live reading and accepts a cached one only while it is newer than a couple of minutes."))
-                    .font(.callout)
+                    .font(.caption)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
-                Text(L10n.t("It spends a request every time. A provider that rate-limits answers one request too many by refusing the next few minutes of them, and the figure then ages further than it would have. Worth turning on to check Swarmaa against a provider's own dashboard, and worth turning off again after."))
-                    .font(.callout)
+                Text(L10n.t("It spends a request every time. A provider that rate-limits answers one request too many by refusing the next few minutes of them, and the figure then ages further than it would have. Worth turning on to check Codenotch against a provider's own dashboard, and worth turning off again after."))
+                    .font(.caption)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -1483,7 +1482,7 @@ struct SettingsView: View {
                             if inside { NSCursor.pointingHand.push() } else { NSCursor.pop() }
                         }
                 }
-                .font(.callout)
+                .font(.caption)
                 .foregroundStyle(.secondary)
             }
         }
@@ -1503,7 +1502,7 @@ struct SettingsView: View {
             if let display = displays.first(where: { $0.id == id }) {
                 return L10n.t("Pinned to \(display.name).")
             }
-            return L10n.t("That display is disconnected. Swarmaa follows the active window until it returns.")
+            return L10n.t("That display is disconnected. Codenotch follows the active window until it returns.")
         }
     }
 
@@ -1542,10 +1541,10 @@ struct SettingsView: View {
 
     /// The sidebar plus a detail pane wide enough for an account row's name,
     /// buttons and switch without crowding.
-    static let width: CGFloat = 940
+    static let width: CGFloat = 860
     /// Each pane scrolls on its own now, so this no longer has to fit every
     /// section in the app at once — just a comfortable account list.
-    static let height: CGFloat = 680
+    static let height: CGFloat = 600
 
     /// The rows the notch actually draws, in the order it draws them.
     ///
@@ -1578,7 +1577,7 @@ struct SettingsView: View {
     /// this, sees four blank rings and concludes it is broken — and the
     /// distinction that catches them out is Claude *Code*, not the Claude app.
     static var setupCopy: String {
-        L10n.t("Swarmaa reads usage from tools already signed in on this Mac — it never asks for your password. Install and sign in to any of Claude Code (the terminal tool, not the Claude app), Cursor (the editor or cursor-agent), Codex, Antigravity, GLM, Grok, OpenCode, Command Code, GitHub Copilot, Kimi Code, Kiro, Amp, Apify, the Kilo CLI, Muse or a Gemini API key (via Gemini CLI, OpenCode or Hermes), and its ring appears in the notch.")
+        L10n.t("Codenotch reads usage from tools already signed in on this Mac — it never asks for your password. Install and sign in to any of Claude Code (the terminal tool, not the Claude app), Cursor (the editor or cursor-agent), Codex, Antigravity, GLM, Grok, OpenCode, Command Code, GitHub Copilot, Kimi Code, Kiro, Amp, Apify, the Kilo CLI, Muse or a Gemini API key (via Gemini CLI, OpenCode or Hermes), and its ring appears in the notch.")
     }
 
     /// Said before it happens rather than after. A system dialogue asking to
@@ -1587,7 +1586,7 @@ struct SettingsView: View {
     /// it return on every read, which is what "it asks every time" turns out to
     /// be.
     static var keychainCopy: String {
-        L10n.t("macOS may ask before Swarmaa reads Claude Code's, Antigravity's, cursor-agent's or Muse's saved login. Background refreshes never show that question; it appears only when you click Allow access…, and Deny stops Swarmaa reading that login until you ask again.")
+        L10n.t("macOS may ask before Codenotch reads Claude Code's, Antigravity's, cursor-agent's or Muse's saved login. Background refreshes never show that question; it appears only when you click Allow access…, and Deny stops Codenotch reading that login until you ask again.")
     }
 
     /// A provider has just been switched on: put it after the ones already
@@ -1639,12 +1638,12 @@ struct SettingsView: View {
                 Text(L10n.t("Connect an assistant to get started"))
                     .font(.callout.weight(.medium))
                 Text(SettingsView.setupCopy)
-                    .font(.callout)
+                    .font(.caption)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
 
                 Text(SettingsView.keychainCopy)
-                    .font(.callout)
+                    .font(.caption)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
                     .padding(.top, 2)
@@ -1770,7 +1769,7 @@ private struct MenuBarChoice: Identifiable, Equatable {
     }
 }
 
-/// One provider: whether Swarmaa reads it, whose account that is, and where
+/// One provider: whether Codenotch reads it, whose account that is, and where
 /// to go if there is nothing to read.
 /// One sound choice, with a preview button.
 private struct SoundRow: View {
@@ -1941,7 +1940,7 @@ private struct AccountRow: View {
                                     preferences.setNickname(name, for: provider.id)
                                 }
                             Text(L10n.t("What the notch, the menu bar and notifications call this account. Empty goes back to \(provider.name)."))
-                                .font(.callout)
+                                .font(.caption)
                                 .foregroundStyle(.secondary)
                                 .fixedSize(horizontal: false, vertical: true)
                         }
@@ -1990,7 +1989,7 @@ private struct AccountRow: View {
                         // Not "it will stop asking": for Claude it will not.
                         // Claude Code recreates its login when the token
                         // rotates, and a recreated item forgets the grant.
-                        .help(L10n.t("Asks macOS for \(provider.name)'s saved login again. Deny stops Swarmaa reading it until you ask again."))
+                        .help(L10n.t("Asks macOS for \(provider.name)'s saved login again. Deny stops Codenotch reading it until you ask again."))
                 }
 
                 if isConnected, let destination {
@@ -2013,7 +2012,7 @@ private struct AccountRow: View {
             // 48 = the handle, the glyph and the two gaps before the name, so
             // the detail still starts under the first letter of the name.
             detail
-                .font(.callout)
+                .font(.caption)
                 .padding(.leading, 48)
 
             // Outside `detail` on purpose. That chain shows the account summary
@@ -2023,7 +2022,7 @@ private struct AccountRow: View {
             // makes everything look fine.
             if isConnected, provider.needsSignInRenewal {
                 Text(L10n.t("\(provider.name) usage needs its sign-in renewed — run `claude` once in a terminal."))
-                    .font(.callout)
+                    .font(.caption)
                     .foregroundStyle(.orange)
                     .padding(.leading, 48)
                     .fixedSize(horizontal: false, vertical: true)
@@ -2151,7 +2150,7 @@ private struct AccountRow: View {
                 ollamaKeyEntry
             }
 
-            // MiniMax is signed into in Swarmaa, or by a Coding Plan key
+            // MiniMax is signed into in Codenotch, or by a Coding Plan key
             // pasted here. The region is which console that key belongs to.
             // Stored in the keychain on Save, the same way Ollama's is.
             if provider.id == "qoder" {
@@ -2164,7 +2163,7 @@ private struct AccountRow: View {
                     .labelsHidden()
                     .pickerStyle(.menu)
                     .frame(width: 160)
-                    Text(L10n.t("Sign in to Qoder in Swarmaa. Each region has a separate account and session. Website verification may be required."))
+                    Text(L10n.t("Sign in to Qoder in Codenotch. Each region has a separate account and session. Website verification may be required."))
                         .foregroundStyle(.tertiary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -2287,7 +2286,7 @@ private struct AccountRow: View {
             minimaxKeyEntry
             minimaxCookieEntry
 
-            Text(L10n.t("Sign in to MiniMax in Swarmaa, or paste a Coding Plan key. A Cookie header is optional. Swarmaa never reads a browser's cookies."))
+            Text(L10n.t("Sign in to MiniMax in Codenotch, or paste a Coding Plan key. A Cookie header is optional. Codenotch never reads a browser's cookies."))
                 .foregroundStyle(.tertiary)
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -2377,7 +2376,7 @@ private struct AccountRow: View {
             // Not a sign-in problem, so do not send them off to sign in. The
             // credential is right there and macOS is the one saying no — the
             // remedy is the button on this same row.
-            Text(L10n.t("Swarmaa is not reading \(provider.name)'s saved login. Choose Allow access… above and answer Allow."))
+            Text(L10n.t("Codenotch is not reading \(provider.name)'s saved login. Choose Allow access… above and answer Allow."))
                 .foregroundStyle(.orange)
                 .fixedSize(horizontal: false, vertical: true)
         } else {
@@ -2582,7 +2581,7 @@ struct PhoneSettingsPane: View {
                             VStack(alignment: .leading) {
                                 Text(device.name)
                                 Text(lastSeenText(for: device))
-                                    .font(.callout)
+                                    .font(.caption)
                                     .foregroundColor(.secondary)
                             }
                             Spacer()

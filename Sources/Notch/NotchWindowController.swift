@@ -34,10 +34,6 @@ final class NotchWindowController {
     var onRefreshProvider: ((String) async -> Void)?
     /// Open the settings window, asked for by clicking the handle.
     var onOpenSettings: (() -> Void)?
-    /// Cancel a running Swarma task, asked for from a cell's context menu.
-    var onCancelSwarmTask: ((SwarmaCancelTarget) -> Void)?
-    var onReviewLessons: (() -> Void)?
-    var onOpenThread: ((String) -> Void)?
     /// An ⌥-drag on the pill settled at a new `model.alongOffset`. The
     /// controller only holds the live value; persisting it per edge is
     /// Preferences' job, the same division `apply(edge:)` already keeps.
@@ -753,7 +749,7 @@ final class NotchWindowController {
     private var travelShown: CGFloat?
     private var travelVelocity: CGFloat = 0
     private var follower: CADisplayLink?
-    private var displayTick: DisplayTick?
+    private var ticker: DisplayTick?
     private var lastTick: CFTimeInterval?
 
     /// **The notch follows the hand on a spring**, not an ease: it carries its
@@ -802,14 +798,14 @@ final class NotchWindowController {
         // Common modes: the drag holds the run loop in event tracking.
         link.add(to: .main, forMode: .common)
         follower = link
-        displayTick = tick
+        ticker = tick
         lastTick = nil
     }
 
     private func stopFollowing() {
         follower?.invalidate()
         follower = nil
-        displayTick = nil
+        ticker = nil
         lastTick = nil
     }
 
@@ -1570,10 +1566,11 @@ final class NotchWindowController {
            let index = cellIndex(along: placement.along(of: local)),
            model.snapshots.indices.contains(index) {
             let snapshot = model.snapshots[index]
-            if snapshot.id == SwarmaCells.lessonsID, let onReviewLessons {
-                onReviewLessons()
-            } else if let thread = SwarmaCells.threadID(fromCellID: snapshot.id), let onOpenThread {
-                onOpenThread(thread)
+            if snapshot.kind == .stockTicker {
+                let sym = snapshot.displayName.uppercased()
+                if let url = URL(string: "https://digital.fidelity.com/prgw/digital/research/quote/dashboard/summary?symbol=\(sym)") {
+                    NSWorkspace.shared.open(url)
+                }
             } else if let onRefreshProvider {
                 Task { await model.refresh(snapshot, using: onRefreshProvider) }
             }
@@ -2024,31 +2021,61 @@ final class NotchWindowController {
             menu.addItem(item)
         }
 
+        // If hovered over a stock ticker, or if any stock tickers exist
         if let hovered = model.hoveredIndex, model.snapshots.indices.contains(hovered),
-           model.snapshots[hovered].id == SwarmaCells.lessonsID {
+           model.snapshots[hovered].kind == .stockTicker {
+            let ticker = model.snapshots[hovered].displayName.uppercased()
             menu.addItem(.separator())
-            let review = NSMenuItem(title: L10n.t("Review lessons…"),
-                                    action: #selector(MenuActions.reviewLessons(_:)), keyEquivalent: "")
-            review.target = menuActions
-            review.isEnabled = true
-            menu.addItem(review)
-        }
+            let fidelityItem = NSMenuItem(
+                title: "Trade \(ticker) on Fidelity.com…",
+                action: #selector(MenuActions.openFidelityDirect(_:)),
+                keyEquivalent: ""
+            )
+            fidelityItem.target = menuActions
+            fidelityItem.representedObject = ticker
+            fidelityItem.isEnabled = true
+            menu.addItem(fidelityItem)
 
-        // Only the cell under the pointer offers its running tasks.
-        if let hovered = model.hoveredIndex, model.snapshots.indices.contains(hovered),
-           model.snapshots[hovered].kind == .swarm {
-            let tasks = model.snapshots[hovered].swarmTasks
-            if !tasks.isEmpty { menu.addItem(.separator()) }
-            for task in tasks {
-                let cancel = NSMenuItem(
-                    title: L10n.t("Cancel task: \(task.title)…"),
-                    action: #selector(MenuActions.cancelSwarmTask(_:)),
-                    keyEquivalent: ""
-                )
-                cancel.target = menuActions
-                cancel.representedObject = task
-                cancel.isEnabled = true
-                menu.addItem(cancel)
+            let opsoddsItem = NSMenuItem(
+                title: "View \(ticker) on OpsOdds.com…",
+                action: #selector(MenuActions.openOpsOddsDirect(_:)),
+                keyEquivalent: ""
+            )
+            opsoddsItem.target = menuActions
+            opsoddsItem.representedObject = ticker
+            opsoddsItem.isEnabled = true
+            menu.addItem(opsoddsItem)
+        } else {
+            let stockSnapshots = model.snapshots.filter { $0.kind == .stockTicker }
+            if !stockSnapshots.isEmpty {
+                menu.addItem(.separator())
+                for stock in stockSnapshots {
+                    let ticker = stock.displayName.uppercased()
+                    let subMenu = NSMenu()
+                    let trade = NSMenuItem(
+                        title: "Trade on Fidelity.com…",
+                        action: #selector(MenuActions.openFidelityDirect(_:)),
+                        keyEquivalent: ""
+                    )
+                    trade.target = menuActions
+                    trade.representedObject = ticker
+                    trade.isEnabled = true
+                    subMenu.addItem(trade)
+
+                    let viewOps = NSMenuItem(
+                        title: "View on OpsOdds.com…",
+                        action: #selector(MenuActions.openOpsOddsDirect(_:)),
+                        keyEquivalent: ""
+                    )
+                    viewOps.target = menuActions
+                    viewOps.representedObject = ticker
+                    viewOps.isEnabled = true
+                    subMenu.addItem(viewOps)
+
+                    let stockItem = NSMenuItem(title: "$\(ticker)", action: nil, keyEquivalent: "")
+                    stockItem.submenu = subMenu
+                    menu.addItem(stockItem)
+                }
             }
         }
 
@@ -2062,14 +2089,9 @@ final class NotchWindowController {
         settings.target = menuActions
         settings.isEnabled = true
         menu.addItem(settings)
-        // The menu bar icon can sit hidden behind a MacBook's notch; keep setup reachable from here.
-        let setup = NSMenuItem(title: L10n.t("Run Setup…"), action: #selector(MenuActions.runSetup(_:)), keyEquivalent: "")
-        setup.target = menuActions
-        setup.isEnabled = true
-        menu.addItem(setup)
         menu.addItem(.separator())
         menu.addItem(
-            withTitle: L10n.t("Quit Swarmaa"),
+            withTitle: L10n.t("Quit NotchTrader"),
             action: #selector(NSApplication.terminate(_:)),
             keyEquivalent: "q"
         ).isEnabled = true
@@ -2080,9 +2102,7 @@ final class NotchWindowController {
         refresh: { [weak self] in self?.onRefresh?() },
         signIn: { [weak self] index in self?.signInItems[safe: index]?.action() },
         togglePinned: { [weak self] in self?.togglePinned() },
-        openSettings: { [weak self] in self?.onOpenSettings?() },
-        cancelSwarmTask: { [weak self] in self?.onCancelSwarmTask?($0) },
-        reviewLessons: { [weak self] in self?.onReviewLessons?() }
+        openSettings: { [weak self] in self?.onOpenSettings?() }
     )
 }
 
@@ -2094,34 +2114,36 @@ final class MenuActions: NSObject {
     private let signIn: (Int) -> Void
     private let pin: () -> Void
     private let settings: () -> Void
-    private let cancelSwarm: (SwarmaCancelTarget) -> Void
-    private let lessons: () -> Void
 
     init(
         refresh: @escaping () -> Void,
         signIn: @escaping (Int) -> Void,
         togglePinned: @escaping () -> Void,
-        openSettings: @escaping () -> Void,
-        cancelSwarmTask: @escaping (SwarmaCancelTarget) -> Void,
-        reviewLessons: @escaping () -> Void
+        openSettings: @escaping () -> Void
     ) {
-        self.lessons = reviewLessons
         self.refresh = refresh
         self.signIn = signIn
         self.pin = togglePinned
         self.settings = openSettings
-        self.cancelSwarm = cancelSwarmTask
     }
 
     @objc func refreshNow(_ sender: Any?) { refresh() }
     @objc func togglePinned(_ sender: Any?) { pin() }
     @objc func openSettings(_ sender: Any?) { settings() }
-    @objc func runSetup(_ sender: Any?) { NotificationCenter.default.post(name: .swarmaaRunSetup, object: nil) }
-    @objc func reviewLessons(_ sender: Any?) { lessons() }
 
-    @objc func cancelSwarmTask(_ sender: Any?) {
-        guard let item = sender as? NSMenuItem, let task = item.representedObject as? SwarmaCancelTarget else { return }
-        cancelSwarm(task)
+    @objc func openFidelityDirect(_ sender: Any?) {
+        guard let item = sender as? NSMenuItem, let ticker = item.representedObject as? String else { return }
+        if let url = URL(string: "https://digital.fidelity.com/prgw/digital/research/quote/dashboard/summary?symbol=\(ticker)") {
+            NSWorkspace.shared.open(url)
+        }
+    }
+
+    @objc func openOpsOddsDirect(_ sender: Any?) {
+        guard let item = sender as? NSMenuItem, let ticker = item.representedObject as? String else { return }
+        let sym = ticker.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+        if let url = URL(string: "https://www.opsodds.com/ticker/\(sym)") {
+            NSWorkspace.shared.open(url)
+        }
     }
 
     @objc func signIn(_ sender: Any?) {

@@ -32,28 +32,6 @@ enum ReleaseNotes {
     static var all: [ReleaseNote] {
         [
             ReleaseNote(
-                version: "1.25.0",
-                headline: L10n.t("A main window for your agents: what needs you, their threads, swarms and questions."),
-                changes: [
-                    ReleaseNote.Change(
-                        title: L10n.t("Needs you"),
-                        detail: L10n.t("Questions to answer, work ready for review and failed runs, each with one button to deal with it.")
-                    ),
-                    ReleaseNote.Change(
-                        title: L10n.t("Agents and threads"),
-                        detail: L10n.t("Talk to persistent agents, switch which model runs them, and follow their swarms as live cards.")
-                    ),
-                    ReleaseNote.Change(
-                        title: L10n.t("Tasks"),
-                        detail: L10n.t("Everything in progress, ready, failed or resolved, with a checkbox to fold finished work away.")
-                    ),
-                    ReleaseNote.Change(
-                        title: L10n.t("Setup checklist"),
-                        detail: L10n.t("Shows which parts of Swarmaa are ready and how to fix the rest. Open it from Settings or the menu bar's Open Swarmaa.")
-                    ),
-                ]
-            ),
-            ReleaseNote(
                 version: "1.23.0",
                 headline: L10n.t("Show what is left instead of what is used, a Dock style, oMLX, and Claude and Codex on your own servers."),
                 changes: [
@@ -93,7 +71,7 @@ enum ReleaseNotes {
                 changes: [
                     ReleaseNote.Change(
                         title: L10n.t("Qoder"),
-                        detail: L10n.t("A ring for your Qoder credits, international or China mainland. Sign in once inside Swarmaa; nothing is copied from your browser.")
+                        detail: L10n.t("A ring for your Qoder credits, international or China mainland. Sign in once inside Codenotch; nothing is copied from your browser.")
                     ),
                     ReleaseNote.Change(
                         title: L10n.t("More than one Command Code account"),
@@ -123,7 +101,7 @@ enum ReleaseNotes {
                     ),
                     ReleaseNote.Change(
                         title: L10n.t("Antigravity without the IDE running"),
-                        detail: L10n.t("With the IDE closed, Swarmaa starts Antigravity's own language server to read your quota rather than showing nothing.")
+                        detail: L10n.t("With the IDE closed, Codenotch starts Antigravity's own language server to read your quota rather than showing nothing.")
                     ),
                     ReleaseNote.Change(
                         title: L10n.t("OpenCode, whichever version"),
@@ -145,7 +123,7 @@ enum ReleaseNotes {
                 changes: [
                     ReleaseNote.Change(
                         title: L10n.t("Cost per project"),
-                        detail: L10n.t("A new Costs section reads the transcripts Claude Code and Codex already keep, and shows what each project spent of each login's allowance — by day, week and month, priced from your plan. Usage from before Swarmaa was running is shown as other, never guessed.")
+                        detail: L10n.t("A new Costs section reads the transcripts Claude Code and Codex already keep, and shows what each project spent of each login's allowance — by day, week and month, priced from your plan. Usage from before Codenotch was running is shown as other, never guessed.")
                     ),
                     ReleaseNote.Change(
                         title: L10n.t("Figures that keep up"),
@@ -263,7 +241,7 @@ enum ReleaseNotes {
                     ),
                     ReleaseNote.Change(
                         title: L10n.t("Quieter"),
-                        detail: L10n.t("Opening Swarmaa no longer announces a limit that was reached long before: a reading kept from last time is no longer mistaken for something that just happened. Clicking the notch to hold it open lasts the session rather than for good, so the full-screen fold is never disabled behind your back.")
+                        detail: L10n.t("Opening Codenotch no longer announces a limit that was reached long before: a reading kept from last time is no longer mistaken for something that just happened. Clicking the notch to hold it open lasts the session rather than for good, so the full-screen fold is never disabled behind your back.")
                     ),
                     ReleaseNote.Change(
                         title: L10n.t("The menu bar shows more"),
@@ -345,7 +323,7 @@ enum ReleaseNotes {
                     ),
                     ReleaseNote.Change(
                         title: L10n.t("QianwenAI"),
-                        detail: L10n.t("A ring for QianwenAI's Token Plan, signed into from Swarmaa.")
+                        detail: L10n.t("A ring for QianwenAI's Token Plan, signed into from Codenotch.")
                     ),
                     ReleaseNote.Change(
                         title: L10n.t("繁體中文, and every language complete"),
@@ -367,15 +345,15 @@ enum ReleaseNotes {
                 changes: [
                     ReleaseNote.Change(
                         title: L10n.t("No more crash in Simplified Chinese"),
-                        detail: L10n.t("With the app in 简体中文, a provider past 80% crashed Swarmaa a few seconds after launch. Every translation is now checked for this.")
+                        detail: L10n.t("With the app in 简体中文, a provider past 80% crashed Codenotch a few seconds after launch. Every translation is now checked for this.")
                     ),
                     ReleaseNote.Change(
                         title: L10n.t("Deny means no"),
-                        detail: L10n.t("Answering Deny when macOS asks about a saved login now stops Swarmaa reading that account from any source, until you choose Allow access… again.")
+                        detail: L10n.t("Answering Deny when macOS asks about a saved login now stops Codenotch reading that account from any source, until you choose Allow access… again.")
                     ),
                     ReleaseNote.Change(
                         title: L10n.t("Fewer file access prompts"),
-                        detail: L10n.t("Renewing Claude's login no longer starts your MCP servers and hooks, and Kimi sessions are matched without looking inside your folders, so macOS no longer asks about Documents, Desktop or network volumes on Swarmaa's behalf.")
+                        detail: L10n.t("Renewing Claude's login no longer starts your MCP servers and hooks, and Kimi sessions are matched without looking inside your folders, so macOS no longer asks about Documents, Desktop or network volumes on Codenotch's behalf.")
                     ),
                     ReleaseNote.Change(
                         title: L10n.t("Smaller fixes"),
@@ -389,7 +367,7 @@ enum ReleaseNotes {
                 changes: [
                     ReleaseNote.Change(
                         title: L10n.t("Lighter on the battery"),
-                        detail: L10n.t("Swarmaa idles at a fraction of the CPU it used, and moving the pointer costs less than half as much. The working spinner is drawn by the system instead of redrawing the notch every frame, and full-screen apps are checked every two seconds rather than on every movement.")
+                        detail: L10n.t("Codenotch idles at a fraction of the CPU it used, and moving the pointer costs less than half as much. The working spinner is drawn by the system instead of redrawing the notch every frame, and full-screen apps are checked every two seconds rather than on every movement.")
                     ),
                     ReleaseNote.Change(
                         title: L10n.t("Windows Settings opens again"),
@@ -414,7 +392,7 @@ enum ReleaseNotes {
                 headline: L10n.t("An installer for Windows, Ukrainian, Dark glass, and limits you set yourself."),
                 changes: [
                     ReleaseNote.Change(
-                        title: L10n.t("Swarmaa for Windows, installable"),
+                        title: L10n.t("Codenotch for Windows, installable"),
                         detail: L10n.t("Every release now carries Codenotch-Setup.exe, which installs for the current user without administrator rights. It is not signed yet, so Windows asks once. The port also gains the Mac's settings window, Small, Medium and Large sizes, a ring for the weekly limit, and Chinese, Japanese, Korean and Ukrainian.")
                     ),
                     ReleaseNote.Change(
@@ -449,7 +427,7 @@ enum ReleaseNotes {
                 changes: [
                     ReleaseNote.Change(
                         title: L10n.t("Kiro and MiniMax"),
-                        detail: L10n.t("Kiro reads the kiro-cli sign-in already on this Mac. MiniMax signs in from Swarmaa, with a choice of international or China region.")
+                        detail: L10n.t("Kiro reads the kiro-cli sign-in already on this Mac. MiniMax signs in from Codenotch, with a choice of international or China region.")
                     ),
                     ReleaseNote.Change(
                         title: L10n.t("Deutsch"),
@@ -502,7 +480,7 @@ enum ReleaseNotes {
                         detail: L10n.t("A quit action in the Settings sidebar, for when the menu bar icon is switched off.")
                     ),
                     ReleaseNote.Change(
-                        title: L10n.t("A web page cannot reach Swarmaa's local servers"),
+                        title: L10n.t("A web page cannot reach Codenotch's local servers"),
                         detail: L10n.t("The Ollama relay and the Windows event server now refuse browser requests from other sites, and raw responses are kept out of the system log. Reading DeepSeek also checks the page's address exactly, where a lookalike domain could have passed before.")
                     ),
                     ReleaseNote.Change(
@@ -649,7 +627,7 @@ enum ReleaseNotes {
                     ),
                     ReleaseNote.Change(
                         title: L10n.t("A ready-made download, no Xcode needed"),
-                        detail: L10n.t("Every build now produces an app bundle you can run, so trying Swarmaa no longer starts with a developer setup.")
+                        detail: L10n.t("Every build now produces an app bundle you can run, so trying Codenotch no longer starts with a developer setup.")
                     ),
                 ]
             ),
@@ -779,7 +757,7 @@ enum ReleaseNotes {
                 changes: [
                     ReleaseNote.Change(
                         title: L10n.t("Codex is read live instead of from a log"),
-                        detail: L10n.t("The figure came from a file Codex writes during a turn, so it was as old as the last time you used it — three days stale in one case. Swarmaa now asks Codex itself, and matches its own panel.")
+                        detail: L10n.t("The figure came from a file Codex writes during a turn, so it was as old as the last time you used it — three days stale in one case. Codenotch now asks Codex itself, and matches its own panel.")
                     ),
                     ReleaseNote.Change(
                         title: L10n.t("The Codex ring notices the desktop app"),
@@ -827,7 +805,7 @@ enum ReleaseNotes {
                 changes: [
                     ReleaseNote.Change(
                         title: L10n.t("Antigravity shows its actual quota"),
-                        detail: L10n.t("Google will not answer Swarmaa directly, so it asks Antigravity's own language server instead — the same place Antigravity's usage panel gets its figure.")
+                        detail: L10n.t("Google will not answer Codenotch directly, so it asks Antigravity's own language server instead — the same place Antigravity's usage panel gets its figure.")
                     ),
                     ReleaseNote.Change(
                         title: L10n.t("Usage reads both ways"),
@@ -861,10 +839,10 @@ enum ReleaseNotes {
                     ),
                     ReleaseNote.Change(
                         title: L10n.t("Claude, Cursor, Codex and Gemini"),
-                        detail: L10n.t("Each read from the tool already signed in on this Mac. Swarmaa never asks for a password.")
+                        detail: L10n.t("Each read from the tool already signed in on this Mac. Codenotch never asks for a password.")
                     ),
                     ReleaseNote.Change(
-                        title: L10n.t("Choose where Swarmaa appears"),
+                        title: L10n.t("Choose where Codenotch appears"),
                         detail: L10n.t("In the Dock, in the menu bar, or nowhere at all.")
                     )
                 ]

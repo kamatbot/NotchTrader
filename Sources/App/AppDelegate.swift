@@ -3,8 +3,6 @@ import Combine
 import SwiftUI
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
-    /// The running delegate. `NSApp.delegate` is SwiftUI's adaptor proxy, not this class, so casting it finds nothing.
-    private(set) static weak var shared: AppDelegate?
     private var notchFleet: NotchFleet?
     private var store: UsageStore?
     var phoneLinkServer: PhoneLinkServer?
@@ -45,7 +43,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// that rate-limits, actively harmful.
     private var isRunningTests: Bool { Runtime.isUnderTest }
 
-    /// Quit any copy of Swarmaa that was already running.
+    /// Quit any copy of Codenotch that was already running.
     ///
     /// Every notch is a window on the screen edge, so a second copy is not a
     /// harmless duplicate the way a second text editor is: it draws a second
@@ -96,14 +94,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var claudeProviders: [ClaudeOAuthProvider] = []
     /// MiniMax Platform sign-in sheet. Not a UsageProvider — that is MiniMaxProvider.
     private var miniMaxWeb: WebSessionProvider?
-    /// Decides which Swarma agent and swarm cells exist; see `SwarmaDirectory`.
-    private var swarmaDirectory: SwarmaDirectory?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        Self.shared = self
-        NotificationCenter.default.addObserver(forName: .swarmaaRunSetup, object: nil, queue: .main) { [weak self] _ in
-            MainActor.assumeIsolated { self?.runSetup() }
-        }
         // Set here, not in the Info.plist: this call is applied at launch and
         // overrides `LSUIElement` either way. Removing the plist key alone left
         // the app registered as a UIElement with no Dock tile, which looked
@@ -115,37 +107,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         ChannelNotifications.installPresenter()
 
         // Before Preferences reads anything, or the first launch flag and
-        // every choice would be read from an empty domain — and before the
-        // onboarding gate, which reads the migrated Swarmaa settings.
-        Preferences.migrateFromCodenotch()
+        // every choice would be read from an empty domain.
         Preferences.migrateFromPreviousName()
-        if OnboardingGate.needsOnboarding() {
-            runSetup()
-        } else {
-            startNotch()
-        }
-    }
-
-    // MARK: Onboarding
-
-    private var onboarding: OnboardingWindowController?
-    private var notchStarted = false
-
-    /// "Run Setup…", and the first-launch gate. The notch starts when the
-    /// window closes, if it has not already.
-    @MainActor func runSetup() {
-        if let onboarding, onboarding.isShowing { onboarding.show(); return }
-        let controller = OnboardingWindowController(preferences: preferences) { [weak self] in
-            guard let self else { return }
-            self.onboarding = nil
-            if !self.notchStarted { self.startNotch() }
-        }
-        onboarding = controller
-        controller.show()
-    }
-
-    @MainActor private func startNotch() {
-        notchStarted = true
         let preferences = Preferences()
         self.preferences = preferences
 
@@ -171,7 +134,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             fleet.setLocalActivities(Fixtures.localActivities())
         } else {
             // DeepSeek's Platform usage page is a browser-session provider:
-            // login is explicit, stays in Swarmaa's own WKWebView store, and
+            // login is explicit, stays in Codenotch's own WKWebView store, and
             // the page-local requests are refreshed only after that login.
             let deepSeek = WebSessionProvider(site: Sites.deepSeek)
             // QianwenAI's Token Plan is the same kind of provider: no usage API
@@ -220,7 +183,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             let remoteProviders: [UsageProvider] = preferences.remoteHosts
                 .filter { $0.isEnabled && $0.isConfigured }
                 .map { $0.makeProvider() }
-            let allProviders: [UsageProvider] = claudeProviders
+            let tickerProviders: [UsageProvider] = preferences.configuredTickers.map { ticker in
+                StockTickerProvider(
+                    ticker: ticker,
+                    getDeviceId: { [weak preferences] in preferences?.opsOddsDeviceId },
+                    getBaseURL: { [weak preferences] in preferences?.opsOddsBaseURL ?? "https://www.opsodds.com" }
+                )
+            }
+            let allProviders: [UsageProvider] = tickerProviders
+                + claudeProviders
                 + [CursorLocalProvider()]
                 + codexProfiles.map { CodexLocalProvider(profile: $0) }
                 + antigravityProfiles.map { AntigravityProvider(profile: $0) }
@@ -282,39 +253,46 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     store?.registerRemoteProviders(providers)
                 }
                 .store(in: &cancellables)
-            let swarma = SwarmaDirectory(store: store)
-            self.swarmaDirectory = swarma
-            preferences.$swarmaEnabled
+            preferences.$configuredTickers
                 .removeDuplicates()
                 .receive(on: RunLoop.main)
-                .sink { [weak swarma] in swarma?.setEnabled($0) }
+                .sink { [weak store, weak preferences] tickers in
+                    guard let preferences, let store else { return }
+                    for ticker in tickers {
+                        preferences.setConnected(true, for: "ticker:\(ticker)")
+                    }
+                    let providers: [UsageProvider] = tickers.map { ticker in
+                        StockTickerProvider(
+                            ticker: ticker,
+                            getDeviceId: { [weak preferences] in preferences?.opsOddsDeviceId },
+                            getBaseURL: { [weak preferences] in preferences?.opsOddsBaseURL ?? "https://www.opsodds.com" }
+                        )
+                    }
+                    store.registerTickerProviders(providers)
+                }
                 .store(in: &cancellables)
-            preferences.$swarmaShowsChats
-                .removeDuplicates()
-                .receive(on: RunLoop.main)
-                .sink { [weak swarma] in swarma?.showsChats = $0 }
-                .store(in: &cancellables)
-            preferences.$swarmaUpdates
-                .removeDuplicates()
-                .receive(on: RunLoop.main)
-                .sink { [weak swarma] in swarma?.announcesUpdates = $0 }
-                .store(in: &cancellables)
-            swarma.onUpdate = { [weak self] update, detail in self?.queueSwarmUpdate(SwarmaUpdates.notice(update, detail: detail)) }
-            swarma.onRoutingChange = { [weak self] change in self?.announceRouting(change) }
-            // A new address or token file is read on the next request; this
-            // only makes that request happen now rather than on the timer.
-            preferences.$swarmaServiceURL
-                .combineLatest(preferences.$swarmaTokenPath)
-                .dropFirst()
-                .debounce(for: .milliseconds(600), scheduler: RunLoop.main)
-                .sink { [weak swarma] _ in swarma?.sync() }
-                .store(in: &cancellables)
-            fleet.onReviewLessons = { [weak self] in self?.reviewLessons() }
-            fleet.onOpenThread = { [weak self] in self?.openTeams(threadID: $0) }
-            fleet.onCancelSwarmTask = { [weak swarma] target in
-                Task { await swarma?.cancel(target) }
-            }
 
+            let updateMarketsOn = { [weak store, weak preferences] in
+                guard let preferences, let store else { return }
+                let active = preferences.isMarketsOnActive
+                DispatchQueue.main.async {
+                    if store.isMarketsOnActive != active {
+                        store.isMarketsOnActive = active
+                    }
+                }
+            }
+            updateMarketsOn()
+
+            preferences.$marketsOnEnabled
+                .combineLatest(preferences.$marketsOnForceActive)
+                .receive(on: RunLoop.main)
+                .sink { _ in updateMarketsOn() }
+                .store(in: &cancellables)
+
+            Timer.publish(every: 30, on: .main, in: .common)
+                .autoconnect()
+                .sink { _ in updateMarketsOn() }
+                .store(in: &cancellables)
             Costs.attach(to: store)
             deepSeek.onAuthenticated = { [weak store] in
                 store?.providerAuthenticationChanged(providerID: "deepseek")
@@ -544,9 +522,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 },
                 previewSessionLimitAlert: { [weak self] in
                     self?.previewSessionLimitAlert()
-                },
-                previewSwarmaUpdate: { [weak self] in
-                    self?.previewSwarmaUpdate()
                 },
                 previewWeeklyLimitAlert: { [weak self] in
                     self?.previewWeeklyLimitAlert()
@@ -965,7 +940,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 .sink { [weak statusItem] snapshots, paced in
                     let snapshots = DailyPace.apply(to: snapshots, enabled: paced)
                     statusItem?.snapshots = snapshots
-                    let usageSnapshots = snapshots.filter { $0.kind != .swarm }
+                    let usageSnapshots = snapshots.filter { $0.kind != .stockTicker }
                     notifier.observe(usageSnapshots)
                     resetWatcher.observe(usageSnapshots)
                     limitWatcher.observe(usageSnapshots)
@@ -1323,61 +1298,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    /// Swarm updates show one after another, silently: each card gets its
-    /// full 6 s before the next slides out, like messages arriving in a chat.
-    private var swarmUpdateQueue: [UsageResetEvent] = []
-    private var swarmUpdateBusy = false
-
-    @MainActor
-    private func queueSwarmUpdate(_ notice: UsageResetEvent) {
-        swarmUpdateQueue.append(notice)
-        drainSwarmUpdates()
-    }
-
-    @MainActor
-    private func drainSwarmUpdates() {
-        guard !swarmUpdateBusy, !swarmUpdateQueue.isEmpty, let fleet = notchFleet else { return }
-        let next = swarmUpdateQueue.removeFirst()
-        // A hidden notch has nowhere to show it; these are never worth a banner.
-        guard fleet.showResetAlert(next, duration: 6.0) else { return drainSwarmUpdates() }
-        swarmUpdateBusy = true
-        DispatchQueue.main.asyncAfter(deadline: .now() + 6.4) { [weak self] in
-            self?.swarmUpdateBusy = false
-            self?.drainSwarmUpdates()
-        }
-    }
-
-    @MainActor
-    private func previewSwarmaUpdate() {
-        let run = SwarmaUpdate(kind: .finished, taskID: "demo", provider: "claude",
-                               objective: "Add the hover card", scope: "project:demo", taskKind: "patch", branch: "swarm/hover-card")
-        queueSwarmUpdate(SwarmaUpdates.notice(run, detail: SwarmaTaskDetail(
-            answer: "## Hover card\nAdded the activity card to the worker cells and wired its height.", reason: nil)))
-    }
-
-    /// Swarmaa moved new work to another vendor. Same two forms as a limit
-    /// alert: the notch's card, or a banner on the Mac channel and wherever the
-    /// notch cannot show one. It follows the limit-reached switches because a
-    /// switch is what a spent limit causes; with those off it stays quiet.
-    @MainActor
-    private func announceRouting(_ change: SwarmaRoutingChange) {
-        guard let preferences,
-              preferences.announceSessionLimitReached || preferences.announceWeeklyLimitReached else { return }
-        let post = { ChannelNotifications.post(title: change.title, body: change.body, thread: "swarma.routing") }
-        guard preferences.notificationChannel == .notch, let fleet = notchFleet else {
-            post()
-            return
-        }
-        var notice = UsageResetEvent(providerID: SwarmaCells.agentPrefix + change.to,
-                                     providerName: SwarmaCells.vendorName(change.to), windowLabel: "",
-                                     glyph: SwarmaCells.glyph(forProvider: change.to),
-                                     previousFraction: 0, currentFraction: 0, resetsAt: nil)
-        notice.noticeTitle = change.title
-        notice.noticeSubtitle = change.body
-        notice.noticeStatus = ""
-        if !fleet.showResetAlert(notice, duration: 6.0) { post() }
-    }
-
     /// The test from Settings, on whichever channel is chosen.
     @MainActor
     private func sendTestNotification() {
@@ -1387,10 +1307,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             return
         }
         if preferences.sessionEndSound { SessionChime.play(preferences.sessionEndSoundName) }
-        var notice = UsageResetEvent(providerID: "codenotch", providerName: "Swarmaa",
+        var notice = UsageResetEvent(providerID: "codenotch", providerName: "Codenotch",
                                      windowLabel: "", glyph: .claude,
                                      previousFraction: 0, currentFraction: 0, resetsAt: nil)
-        notice.noticeTitle = L10n.t("Swarmaa test")
+        notice.noticeTitle = L10n.t("Codenotch test")
         notice.noticeSubtitle = L10n.t("This is what one looks like.")
         notice.noticeStatus = ""
         fleet.showResetAlert(notice, duration: 5.0)
@@ -1518,24 +1438,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @MainActor func openSettings() { settings?.show() }
-
-    private var teams: TeamsWindowController?
-    /// The main window, from the status item or a notch swarm/question item.
-    @MainActor func openTeams(threadID: String? = nil) {
-        if teams == nil { teams = TeamsWindowController() }
-        teams?.show(threadID: threadID)
-    }
-
-    private var lessonReview: LessonReviewWindowController?
-    /// The Lesson Review window, from the notch, the status item or the app menu.
-    @MainActor func reviewLessons() {
-        if lessonReview == nil {
-            lessonReview = LessonReviewWindowController(service: SwarmaClient.shared) { [weak self] in
-                self?.swarmaDirectory?.sync()
-            }
-        }
-        lessonReview?.show()
-    }
     @MainActor func openConnectPhone() {
         guard PhoneLink.isAvailable, let pairing = phoneLinkPairing, let registry = phoneLinkRegistry, let status = phoneLinkServerStatus else { return }
         if preferences?.phoneLinkEnabled == false { preferences?.phoneLinkEnabled = true }
@@ -1558,9 +1460,4 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         AntigravityBridge.owned.stop()
         Task { await phoneLinkServer?.stop() }
     }
-}
-
-extension Notification.Name {
-    /// "Run Setup…" from places with no direct line to the app delegate (notch menu, Settings).
-    static let swarmaaRunSetup = Notification.Name("app.swarmaa.runSetup")
 }

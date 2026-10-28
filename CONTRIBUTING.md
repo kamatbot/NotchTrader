@@ -25,7 +25,7 @@ interaction is switched off for the read, and a refusal is retried through
 `/usr/bin/security`, which is Apple-signed and on the item's access list. The
 one read that may prompt is the one somebody clicks **Allow access…** for in
 Settings. To stop the refusal happening at all, `Scripts/fix-keychain-partitions.sh`
-adds Swarmaa's Team ID to those items' partition lists — once, with your login
+adds Codenotch's Team ID to those items' partition lists — once, with your login
 password.
 
 `make release` is different: it archives, signs with a Developer ID
@@ -88,5 +88,5 @@ minimum:
 Include the unified log around the time it happened:
 
 ```sh
-/usr/bin/log show --last 10m --predicate 'subsystem == "app.swarmaa.notch"' --info --debug
+/usr/bin/log show --last 10m --predicate 'subsystem == "com.vinz.codenotch"' --info --debug
 ```

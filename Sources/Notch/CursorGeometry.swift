@@ -123,7 +123,11 @@ final class CursorGeometry {
         if let cached = tooltipRects[index] { return cached }
         guard model.snapshots.indices.contains(index) else { return nil }
         let snapshot = model.snapshots[index]
-        let cardHeight = NotchLayout.cardHeight(
+        let cardHeight: CGFloat
+        if snapshot.kind == .stockTicker {
+            cardHeight = NotchLayout.opsOddsCardHeight
+        } else {
+            cardHeight = NotchLayout.cardHeight(
                 windowCount: snapshot.windows.count,
                 groupCount: snapshot.windowGroupCount,
                 moneyWindowCount: snapshot.windows.filter { $0.money != nil }.count,
@@ -142,9 +146,10 @@ final class CursorGeometry {
                 localLedgerRows: snapshot.localLedgerRowCount,
                 compactRowCount: snapshot.compactRowCount,
                 showsDeepSeekPricing: model.deepSeekPricingEnabled,
-                swarmActivity: snapshot.swarmActivity
+                isStockTicker: snapshot.kind == .stockTicker
             )
-        let width = NotchLayout.cardWidth
+        }
+        let width = snapshot.kind == .stockTicker ? NotchLayout.opsOddsCardWidth : NotchLayout.cardWidth
         // Across the stack the region is the card, its tail, and the gap the
         // pointer has to cross. Along it, the card's own extent.
         let cardAcross = model.edge.isVertical ? width : cardHeight
@@ -164,9 +169,8 @@ final class CursorGeometry {
 
     func resetCardRect(event: UsageResetEvent) -> CGRect? {
         let index = model.resetAlertIndex(for: event) ?? 0
-        let height = UsageResetCard.height(for: event)
-        let cardAcross = model.edge.isVertical ? NotchLayout.cardWidth : height
-        let cardAlong = model.edge.isVertical ? height : NotchLayout.cardWidth
+        let cardAcross = model.edge.isVertical ? NotchLayout.cardWidth : UsageResetCard.cardHeight
+        let cardAlong = model.edge.isVertical ? UsageResetCard.cardHeight : NotchLayout.cardWidth
         let centre = model.cardAlong(centredOn: ringAlong(index: index), length: cardAlong)
         return placement.rect(
             along: centre - cardAlong / 2,

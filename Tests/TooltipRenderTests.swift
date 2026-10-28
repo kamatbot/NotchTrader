@@ -37,35 +37,6 @@ final class TooltipRenderTests: XCTestCase {
         }
     }
 
-    /// The Swarmaa activity card for a busy agent and for a scope, written to
-    /// /tmp so the render can be looked at.
-    func testSwarmaActivityCardsRender() throws {
-        let status = try SwarmaActivityFixture.status()
-        let cells = [("agent", SwarmaCells.agentSnapshot(name: "worker-codex", in: status)),
-                     ("scope", SwarmaCells.scopeSnapshot(scope: "project:demo", in: status))]
-        for (name, snapshot) in cells {
-            let activity = try XCTUnwrap(snapshot.swarmActivity)
-            let view = TooltipCard(snapshot: snapshot, now: ISO8601DateFormatter().date(from: "2026-10-22T01:00:00Z")!, direction: .trailing)
-                .padding(20)
-                .background(Color.black)
-                .environment(\.colorScheme, .dark)
-                .environment(\.notchCardSurfaceStyle, .solid)
-                .environment(\.codenotchAccentColor, .blue)
-                .environment(\.codenotchHeadlessGlass, true)
-            let renderer = ImageRenderer(content: view)
-            renderer.scale = 2
-            let image = try XCTUnwrap(renderer.nsImage)
-            XCTAssertGreaterThan(image.size.height, NotchLayout.activityCardHeight(activity))
-            let tiff = try XCTUnwrap(image.tiffRepresentation)
-            let png = try XCTUnwrap(NSBitmapImageRep(data: tiff)?.representation(using: .png, properties: [:]))
-            try png.write(to: URL(fileURLWithPath: "/tmp/swarma-activity-\(name).png"))
-            let attachment = XCTAttachment(data: png, uniformTypeIdentifier: "public.png")
-            attachment.name = "swarma-activity-\(name)"
-            attachment.lifetime = .keepAlways
-            add(attachment)
-        }
-    }
-
     func testAmpSubscriptionAndFreeCardsRenderWithTheirGlyph() throws {
         XCTAssertNotNil(NSImage(named: ProviderGlyph.amp.assetName))
         for (name, data) in [("subscription", AmpFixture.tier), ("free", AmpFixture.free)] {

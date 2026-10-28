@@ -49,6 +49,8 @@ struct ProviderRing: View {
     /// Where the user asked for it, if at all.
     var weeklyRing: WeeklyRing = .off
     var bandOverride: UsageBand? = nil
+    var tickerText: String? = nil
+    var isStockUp: Bool? = nil
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.codenotchReduceTransparency) private var reduceTransparency
@@ -150,76 +152,92 @@ struct ProviderRing: View {
 
     var body: some View {
         ZStack {
-            busyWave
-
-            ZStack {
+            if let tickerText, !tickerText.isEmpty {
+                // Stock Ticker: Clean solid circle with no animation
                 Circle()
-                    .strokeBorder(Palette.ringTrack, lineWidth: NotchLayout.trackStroke)
+                    .inset(by: NotchLayout.progressStroke / 2)
+                    .stroke(
+                        (isStockUp ?? true) ? Color(hex: 0x10B981) : Color(hex: 0xEF4444),
+                        lineWidth: NotchLayout.progressStroke
+                    )
 
-                if localPerformance != nil || localContextFraction != nil {
-                    Circle()
-                        .inset(by: NotchLayout.progressStroke / 2)
-                        .trim(from: 0, to: localSweep)
-                        .stroke(
-                            localPerformance?.band.color ?? Palette.textSecondary,
-                            style: StrokeStyle(lineWidth: NotchLayout.progressStroke, lineCap: .round)
-                        )
-                        .rotationEffect(.degrees(-90))
-                        .animation(NotchMotion.reading, value: localSweep)
-                        .animation(NotchMotion.reading, value: localPerformance?.band)
-                } else if usedFraction != nil {
-                    Circle()
-                        .inset(by: NotchLayout.trackStroke / 2)
-                        .trim(from: 0, to: sweep)
-                        .stroke(
-                            primaryRingColor,
-                            style: StrokeStyle(lineWidth: NotchLayout.progressStroke, lineCap: .round)
-                        )
-                        .rotationEffect(.degrees(-90 + spin))
-                        .animation(NotchMotion.reading, value: sweep)
-                        .animation(NotchMotion.reading, value: band)
-                }
-
-                if let radius = weeklyRing.radius, weeklyFraction != nil, !isWorking {
-                    let inset = NotchLayout.ringDiameter / 2 - radius
-
-                    Circle()
-                        .inset(by: inset)
-                        .stroke(Palette.ringTrack,
-                                style: StrokeStyle(lineWidth: NotchLayout.weeklyRingStroke,
-                                                   dash: weeklyRingDashed ? [4, 2] : []))
-                        .opacity(reduceTransparency ? 1 : 0.7)
-
-                    Circle()
-                        .inset(by: inset)
-                        .trim(from: 0, to: weeklySweep)
-                        .stroke(
-                            weeklyRingColor,
-                            style: StrokeStyle(lineWidth: NotchLayout.weeklyRingStroke,
-                                               lineCap: weeklyRingDashed ? .butt : .round,
-                                               dash: weeklyRingDashed ? [4, 2] : [])
-                        )
-                        .opacity(reduceTransparency ? 1 : 0.8)
-                        .rotationEffect(.degrees(-90))
-                        .animation(NotchMotion.reading, value: weeklySweep)
-                        .animation(NotchMotion.reading, value: weeklyBand)
-                }
-
-                ProviderGlyphView(glyph: glyph, customIconFilename: customIconFilename)
+                Text(tickerText)
+                    .font(.system(size: tickerText.count > 3 ? 7.5 : 8.5, weight: .black, design: .rounded))
                     .foregroundStyle(Palette.textPrimary)
-                    .opacity(band == .exhausted ? (reduceTransparency ? 0.7 : 0.35) : 1)
-            }
-            .opacity(isStale ? (reduceTransparency ? 0.75 : 0.45) : 1)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+            } else {
+                busyWave
 
-            if let activity, activity.state != .idle {
-                ActivityArc(summary: activity)
+                ZStack {
+                    Circle()
+                        .strokeBorder(Palette.ringTrack, lineWidth: NotchLayout.trackStroke)
+
+                    if localPerformance != nil || localContextFraction != nil {
+                        Circle()
+                            .inset(by: NotchLayout.progressStroke / 2)
+                            .trim(from: 0, to: localSweep)
+                            .stroke(
+                                localPerformance?.band.color ?? Palette.textSecondary,
+                                style: StrokeStyle(lineWidth: NotchLayout.progressStroke, lineCap: .round)
+                            )
+                            .rotationEffect(.degrees(-90))
+                            .animation(NotchMotion.reading, value: localSweep)
+                            .animation(NotchMotion.reading, value: localPerformance?.band)
+                    } else if usedFraction != nil {
+                        Circle()
+                            .inset(by: NotchLayout.trackStroke / 2)
+                            .trim(from: 0, to: sweep)
+                            .stroke(
+                                primaryRingColor,
+                                style: StrokeStyle(lineWidth: NotchLayout.progressStroke, lineCap: .round)
+                            )
+                            .rotationEffect(.degrees(-90 + spin))
+                            .animation(NotchMotion.reading, value: sweep)
+                            .animation(NotchMotion.reading, value: band)
+                    }
+
+                    if let radius = weeklyRing.radius, weeklyFraction != nil, !isWorking {
+                        let inset = NotchLayout.ringDiameter / 2 - radius
+
+                        Circle()
+                            .inset(by: inset)
+                            .stroke(Palette.ringTrack,
+                                    style: StrokeStyle(lineWidth: NotchLayout.weeklyRingStroke,
+                                                       dash: weeklyRingDashed ? [4, 2] : []))
+                            .opacity(reduceTransparency ? 1 : 0.7)
+
+                        Circle()
+                            .inset(by: inset)
+                            .trim(from: 0, to: weeklySweep)
+                            .stroke(
+                                weeklyRingColor,
+                                style: StrokeStyle(lineWidth: NotchLayout.weeklyRingStroke,
+                                                   lineCap: weeklyRingDashed ? .butt : .round,
+                                                   dash: weeklyRingDashed ? [4, 2] : [])
+                            )
+                            .opacity(reduceTransparency ? 1 : 0.8)
+                            .rotationEffect(.degrees(-90))
+                            .animation(NotchMotion.reading, value: weeklySweep)
+                            .animation(NotchMotion.reading, value: weeklyBand)
+                    }
+
+                    ProviderGlyphView(glyph: glyph, customIconFilename: customIconFilename)
+                        .foregroundStyle(Palette.textPrimary)
+                        .opacity(band == .exhausted ? (reduceTransparency ? 0.7 : 0.35) : 1)
+                }
+                .opacity(isStale ? (reduceTransparency ? 0.75 : 0.45) : 1)
+
+                if let activity, activity.state != .idle {
+                    ActivityArc(summary: activity)
+                }
             }
         }
         .frame(width: NotchLayout.ringDiameter, height: NotchLayout.ringDiameter)
-        .scaleEffect(isRefreshing ? 0.93 : 1)
+        .scaleEffect((tickerText == nil && isRefreshing) ? 0.93 : 1)
         .animation(.spring(response: 0.3, dampingFraction: 0.62), value: isRefreshing)
         .onChange(of: isRefreshing) { _, refreshing in
-            guard refreshing, !reduceMotion else { return }
+            guard tickerText == nil, refreshing, !reduceMotion else { return }
             withAnimation(.timingCurve(0.32, 0, 0.14, 1, duration: 0.95)) {
                 spin += 360
             }
@@ -351,7 +369,9 @@ struct ProviderCell: View {
                 localContextFraction: snapshot.localContextFraction,
                 weeklyFraction: snapshot.hasReading ? snapshot.weeklyFraction : nil,
                 weeklyRing: weeklyRing,
-                bandOverride: snapshot.bandOverride
+                bandOverride: snapshot.bandOverride,
+                tickerText: snapshot.kind == .stockTicker ? snapshot.displayName : nil,
+                isStockUp: snapshot.kind == .stockTicker ? snapshot.isStockUp : nil
             )
             if showsReading { reading }
         }
@@ -522,6 +542,17 @@ struct ProviderReading: View {
 
     /// A dash, not "0%": nothing read is not the same as nothing used.
     var text: String {
+        if snapshot.kind == .stockTicker {
+            if let score = snapshot.opsOddsScore, let pct = score.priceChangePercent {
+                let sign = pct >= 0 ? "+" : ""
+                return String(format: "%@%.1f%%", sign, pct)
+            } else if let score = snapshot.opsOddsScore, let change = score.priceChange, let price = score.currentPrice, price > 0 {
+                let pct = (change / (price - change)) * 100
+                let sign = pct >= 0 ? "+" : ""
+                return String(format: "%@%.1f%%", sign, pct)
+            }
+            return snapshot.headlineText(showingRemaining: false)
+        }
         guard snapshot.hasReading else { return "—" }
         guard let weekly = weeklyReading else { return snapshot.headlineText(showingRemaining: showsRemaining) }
         // The second number flips with the first: in remaining mode both ends
@@ -543,7 +574,10 @@ struct ProviderReading: View {
 
     /// Secondary while dimmed or while a local speed is still unmeasured.
     private var foreground: Color {
-        isDimmed || (snapshot.showsLocalPerformance && snapshot.localPerformance == nil)
+        if snapshot.kind == .stockTicker {
+            return snapshot.isStockUp ? Color(hex: 0x10B981) : Color(hex: 0xEF4444)
+        }
+        return isDimmed || (snapshot.showsLocalPerformance && snapshot.localPerformance == nil)
             ? Palette.textSecondary : Palette.textPrimary
     }
 

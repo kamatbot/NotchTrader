@@ -23,10 +23,6 @@ struct UsageAlertEvent: Equatable {
     var noticeTitle: String? = nil
     var noticeSubtitle: String? = nil
     var noticeStatus: String? = nil
-    /// Up to three more lines under the status (a swarm update's answer excerpt).
-    var noticeDetail: String? = nil
-    /// Failed or needs-you: red dot rather than green.
-    var noticeIsProblem = false
 
     init(
         kind: UsageAlertKind = .reset,
@@ -84,7 +80,7 @@ final class UsageResetWatcher {
     }
 
     private func observe(_ snapshot: ProviderSnapshot) {
-        guard snapshot.kind != .swarm else { return }
+        guard snapshot.kind != .stockTicker else { return }
         // An archived reading is not a baseline: at launch the store publishes
         // the last run's snapshot, marked stale, and the live fetch that
         // follows carries a newer reset date or a lower fraction, both of

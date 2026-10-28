@@ -28,7 +28,7 @@ import Foundation
 /// every Anthropic and Responses line, decode time only for streamed chat and
 /// legacy completions. The printed `in Ns` is always the whole elapsed time,
 /// so `generationSeconds` is derived as tokens over the printed rate rather
-/// than from that or a TTFT subtraction: the speed Swarmaa shows is then the
+/// than from that or a TTFT subtraction: the speed Codenotch shows is then the
 /// speed oMLX itself reported, whichever duration it used.
 ///
 /// Most of the file is other loggers (`httpx`, `omlx.scheduler`, model

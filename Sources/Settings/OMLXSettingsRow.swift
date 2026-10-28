@@ -65,7 +65,7 @@ struct OMLXSettingsRow: View {
                 OMLXMetricsStatus(metrics: metrics)
             }
         }
-        .font(.callout)
+        .font(.caption)
         .fixedSize(horizontal: false, vertical: true)
         .onAppear { address = preferences.omlxEndpoint }
         .onChange(of: address) { _, _ in addressError = nil }

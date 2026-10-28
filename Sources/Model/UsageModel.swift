@@ -364,6 +364,9 @@ struct ProviderSnapshot: Identifiable, Equatable {
                              sourceProviderID: id)
         }
     }
+    var isStockUp: Bool {
+        (opsOddsScore?.priceChange ?? 0) >= 0
+    }
 
     /// Codex's account-wide token activity, when its profile endpoint returned
     /// it. The optional top model is an enrichment from the desktop breakdown
@@ -396,11 +399,8 @@ struct ProviderSnapshot: Identifiable, Equatable {
     /// Locally sampled cumulative token usage for a custom endpoint.
     var customUsageHistory: [CustomEndpointUsageDay]? = nil
 
-    /// Running Swarma tasks this cell can cancel from its context menu.
-    var swarmTasks: [SwarmaCancelTarget] = []
-
-    /// What an agent or project cell shows on hover; nil keeps the generic card.
-    var swarmActivity: SwarmaActivity?
+    /// Live OpsOdds score, market quote, and actionable trade levels.
+    var opsOddsScore: OpsOddsScore? = nil
 
     /// The number on the cell: the provider's declared primary window — for
     /// Claude, the current session.
@@ -517,6 +517,9 @@ struct ProviderSnapshot: Identifiable, Equatable {
             return showsLocalPerformance ? (localPerformance?.headlineText ?? "— tok/s")
                 : (localModel?.memoryText ?? "—")
         }
+        if kind == .stockTicker {
+            return opsOddsScore?.formattedPrice ?? headline?.usedText ?? "—"
+        }
         if headline?.prefersUsedText == true, let usedText = headline?.usedText { return usedText }
         if let usedFraction {
             // The tooltip's own left half, not one minus the fraction: it
@@ -533,7 +536,7 @@ struct ProviderSnapshot: Identifiable, Equatable {
 
     /// An empty local inventory still confirms server connectivity; an absent
     /// reading must not be shown as measured zero usage.
-    var hasReading: Bool { localRuntime != nil || localModel != nil || !windows.isEmpty }
+    var hasReading: Bool { localRuntime != nil || localModel != nil || opsOddsScore != nil || !windows.isEmpty }
 
     /// Group headings occupy space in both the card and its hover region.
     var windowGroupCount: Int { Set(windows.compactMap(\.group)).count }
@@ -630,7 +633,7 @@ struct ProviderSnapshot: Identifiable, Equatable {
             // Points at the one control that asks again. Clicking the ring
             // only refreshes, and a refresh never shows the dialogue — polls
             // are not allowed to.
-            return L10n.t("macOS refused Swarmaa access to \(displayName)'s saved login. Use Allow access… in Settings to ask again.", locale: locale)
+            return L10n.t("macOS refused Codenotch access to \(displayName)'s saved login. Use Allow access… in Settings to ask again.", locale: locale)
         case .unsupported(let why): return why
         case .error(let why): return L10n.t("Couldn't read usage — \(why)", locale: locale)
         case .stale, .ok:     return L10n.t("Waiting for the first reading…", locale: locale)

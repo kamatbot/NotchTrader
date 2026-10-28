@@ -21,14 +21,14 @@ struct DeepSeekPricingSettingsView: View {
                        isOn: $preferences.deepSeekPricingEnabled)
 
                 Text(L10n.t("Shows the current billing phase and the next peak/off-peak change on the DeepSeek usage card."))
-                    .font(.callout)
+                    .font(.caption)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
 
             Section(L10n.t("Peak rule")) {
                 Text(L10n.t("The schedule is maintained locally because it cannot be read reliably from an official API. Times below are UTC; the card converts the next change to your local time."))
-                    .font(.callout)
+                    .font(.caption)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
 
@@ -64,7 +64,7 @@ struct DeepSeekPricingSettingsView: View {
                        isOn: holidayBinding)
 
                 Text(holidayCaption)
-                    .font(.callout)
+                    .font(.caption)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }

@@ -191,6 +191,8 @@ enum NotchLayout {
     static let cardWidth     = Design.px(600)
     /// The update card's, wider for its three buttons — see `UpdateCard`.
     static let updateCardWidth = Design.px(820)
+    /// OpsOdds stock card width: wider for quote, score, decision & trade levels.
+    static let opsOddsCardWidth = Design.px(920)
     static let cardCorner    = Design.px(49.5)
     static let cardPadding   = Design.px(32)
     static let tailLength    = Design.px(75)
@@ -262,7 +264,7 @@ enum NotchLayout {
     ///
     /// Measured, because a status message is the one piece of card text whose
     /// length is not known here. The budget assumed a single line, and the
-    /// longest of them — "Swarmaa was refused access to …'s saved login.
+    /// longest of them — "Codenotch was refused access to …'s saved login.
     /// Click this ring to ask again, and choose Always Allow." — takes three:
     /// 33pt against 12pt reserved. The card came up 21pt short and clipped the
     /// two lines that said what to do about it, on the one ring a user looks at
@@ -390,30 +392,7 @@ enum NotchLayout {
             + blockSpacing + 2 * chart + usageDetailChartGap
     }
 
-    // The Swarmaa activity card: fixed-height rows, so its height is arithmetic.
-    static let activityRowHeight = cardBodyLineHeight + Design.px(10)
-    static let activityRowGap = Design.px(12)
-    static let activityLabelGap = Design.px(10)
-    static let activityPillPad = Design.px(8)
-
-    /// Header, then a titled section per part that has content. Running always
-    /// has one — a quiet line when nothing is — and lists are capped, so it
-    /// cannot outgrow `maxCardHeight`.
-    static func activityCardHeight(_ a: SwarmaActivity) -> CGFloat {
-        func rows(_ n: Int) -> CGFloat { CGFloat(n) * activityRowHeight + CGFloat(max(0, n - 1)) * activityRowGap }
-        func section(_ content: CGFloat) -> CGFloat { blockSpacing + cardBodyLineHeight + activityLabelGap + content }
-        var height = 2 * cardPadding + max(glyphSize, cardTitleLineHeight) + headerToBlock
-        let shown = a.shownRunning.count
-        height += cardBodyLineHeight + activityLabelGap
-            + (shown == 0 ? activityRowHeight : rows(shown) + (a.hiddenRunning > 0 ? activityRowGap + cardBodyLineHeight : 0))
-        if !a.quotas.isEmpty { height += section(rows(a.quotas.count)) }
-        if !a.routes.isEmpty {
-            height += section(activityRowHeight + 2 * activityPillPad
-                              + (a.routeReason != nil ? activityRowGap + cardBodyLineHeight : 0))
-        }
-        if !a.landed.isEmpty { height += section(rows(a.landed.count)) }
-        return height
-    }
+    static let opsOddsCardHeight: CGFloat = Design.px(1350)
 
     static func cardHeight(windowCount: Int, groupCount: Int = 0,
                            moneyWindowCount: Int = 0, moneyResetCount: Int = 0,
@@ -431,8 +410,8 @@ enum NotchLayout {
                            compactRowCount: Int = 0,
                            showsDeepSeekPricing: Bool = true,
                            costRows: Int = 0,
-                           swarmActivity: SwarmaActivity? = nil) -> CGFloat {
-        if let swarmActivity { return activityCardHeight(swarmActivity) }
+                           isStockTicker: Bool = false) -> CGFloat {
+        if isStockTicker { return opsOddsCardHeight }
         let header = max(glyphSize, cardTitleLineHeight)
             + (hasPlan ? cardBodyLineHeight : 0)
         var height = 2 * cardPadding + header
@@ -552,8 +531,8 @@ enum NotchLayout {
                       maxCardHeight: CGFloat = defaultMaxCardHeight,
                       notchScale: CGFloat = 1) -> CGFloat {
         edge.isVertical
-            ? max(endSlack * notchScale, maxCardHeight / 2 + cardCorner)
-            : max(endSlack * notchScale, cardWidth / 2 + cardCorner)
+            ? max(endSlack * notchScale, max(maxCardHeight, opsOddsCardHeight) / 2 + cardCorner)
+            : max(endSlack * notchScale, max(cardWidth, opsOddsCardWidth) / 2 + cardCorner)
     }
 
     private static let endSlack = Design.px(190)
@@ -630,7 +609,7 @@ enum NotchLayout {
     /// below or above it on a horizontal one.
     static func tooltipDepth(for edge: NotchEdge,
                              maxCardHeight: CGFloat = defaultMaxCardHeight) -> CGFloat {
-        // Beside a side edge's notch the update card has to fit too.
-        (edge.isVertical ? max(cardWidth, updateCardWidth) : maxCardHeight) + tailLength + tailGap
+        // Beside a side edge's notch the update and stock cards have to fit too.
+        (edge.isVertical ? max(cardWidth, updateCardWidth, opsOddsCardWidth) : max(maxCardHeight, opsOddsCardHeight)) + tailLength + tailGap
     }
 }

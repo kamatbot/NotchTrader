@@ -63,31 +63,49 @@ final class Preferences: ObservableObject {
         didSet { defaults.set(omlxEndpoint, forKey: Keys.omlxEndpoint) }
     }
 
-    /// Whether Swarma's agents and swarms get cells. On by default only where
-    /// its token file already exists, so a Mac without Swarma sees nothing new.
-    @Published var swarmaEnabled: Bool {
-        didSet { defaults.set(swarmaEnabled, forKey: Keys.swarmaEnabled) }
+    /// User-configured stock tickers displayed on NotchTrader.
+    @Published var configuredTickers: [String] {
+        didSet {
+            defaults.set(configuredTickers, forKey: Keys.configuredTickers)
+            Self.saveTickersToBackup(configuredTickers)
+        }
     }
 
-    /// Where the Swarma service listens.
-    @Published var swarmaServiceURL: String {
-        didSet { defaults.set(swarmaServiceURL, forKey: Keys.swarmaServiceURL) }
+    /// Tickers available in the quick-add bar (popular + all user-added tickers).
+    @Published var quickAddTickers: [String] {
+        didSet { defaults.set(quickAddTickers, forKey: Keys.quickAddTickers) }
     }
 
-    /// The JSON file (`{"token": "…"}`) holding Swarma's bearer token. Only the
-    /// path is stored; the token itself is never copied out of that file.
-    @Published var swarmaTokenPath: String {
-        didSet { defaults.set(swarmaTokenPath, forKey: Keys.swarmaTokenPath) }
+    /// "Markets On" mode: Automatically activates during US market hours (9:30 AM - 4:00 PM ET, Mon-Fri).
+    /// During this time, AI usage circles are hidden, more tickers are shown, and refresh runs every 5 seconds.
+    @Published var marketsOnEnabled: Bool {
+        didSet { defaults.set(marketsOnEnabled, forKey: Keys.marketsOnEnabled) }
     }
 
-    /// Whether each harness with a chat in progress gets a cell.
-    /// Silent chat-style cards in the notch when a Swarmaa task starts, finishes or fails.
-    @Published var swarmaUpdates: Bool {
-        didSet { defaults.set(swarmaUpdates, forKey: Keys.swarmaUpdates) }
+    /// Developer / testing override to force Markets On active outside US market hours.
+    @Published var marketsOnForceActive: Bool {
+        didSet { defaults.set(marketsOnForceActive, forKey: Keys.marketsOnForceActive) }
     }
 
-    @Published var swarmaShowsChats: Bool {
-        didSet { defaults.set(swarmaShowsChats, forKey: Keys.swarmaShowsChats) }
+    /// Whether Markets On is actively in effect right now.
+    var isMarketsOnActive: Bool {
+        guard marketsOnEnabled else { return false }
+        return marketsOnForceActive || USMarketHours.isMarketOpen()
+    }
+
+    /// Base URL for the OpsOdds backend.
+    @Published var opsOddsBaseURL: String {
+        didSet { defaults.set(opsOddsBaseURL, forKey: Keys.opsOddsBaseURL) }
+    }
+
+    /// Paired device ID from OpsOdds extension pairing.
+    @Published var opsOddsDeviceId: String {
+        didSet { defaults.set(opsOddsDeviceId, forKey: Keys.opsOddsDeviceId) }
+    }
+
+    /// Refresh interval for live quotes and OpsOdds scores outside Markets On.
+    @Published var opsOddsRefreshInterval: Double {
+        didSet { defaults.set(opsOddsRefreshInterval, forKey: Keys.opsOddsRefreshInterval) }
     }
 
     /// User-configured custom OpenAI-compatible endpoints.
@@ -259,7 +277,7 @@ final class Preferences: ObservableObject {
     /// when the cache was written seconds ago — and on a provider that rate
     /// limits, one request too many is answered with a back-off that then holds
     /// a number older than the cache would have been. Worth having for somebody
-    /// comparing Swarmaa against a vendor's own dashboard figure by figure;
+    /// comparing Codenotch against a vendor's own dashboard figure by figure;
     /// not worth making everybody pay for.
     @Published var asksProviderOnLook: Bool {
         didSet { defaults.set(asksProviderOnLook, forKey: Keys.asksProviderOnLook) }
@@ -460,7 +478,7 @@ final class Preferences: ObservableObject {
     /// stays out of the bar until someone puts it there.
     ///
     /// Never written alongside `connectedProviders`: one is what the menu bar
-    /// shows, the other what Swarmaa reads, and `MenuBarLimits` says why the
+    /// shows, the other what Codenotch reads, and `MenuBarLimits` says why the
     /// two stay apart.
     @Published private(set) var menuBarProviders: Set<String>? {
         didSet {
@@ -614,14 +632,13 @@ final class Preferences: ObservableObject {
 
         static let lmstudioEndpoint = "lmstudioEndpoint"
         static let omlxEndpoint = "omlxEndpoint"
-        static let swarmaEnabled = "swarmaEnabled"
-        static let swarmaServiceURL = "swarmaServiceURL"
-        static let swarmaTokenPath = "swarmaTokenPath"
-        static let swarmaShowsChats = "swarmaShowsChats"
-        static let swarmaUpdates = "swarmaUpdates"
-        static let swarmaaOnboardingComplete = "swarmaaOnboardingComplete"
-        static let swarmaaServiceRoot = "swarmaaServiceRoot"
-        static let swarmaAuthMode = "swarmaAuthMode"
+        static let configuredTickers = "configuredTickers"
+        static let quickAddTickers = "quickAddTickers"
+        static let marketsOnEnabled = "marketsOnEnabled"
+        static let marketsOnForceActive = "marketsOnForceActive"
+        static let opsOddsBaseURL = "opsOddsBaseURL"
+        static let opsOddsDeviceId = "opsOddsDeviceId"
+        static let opsOddsRefreshInterval = "opsOddsRefreshInterval"
         static let introducedOllama = "introducedOllama"
         static let migratedOllamaID = "migratedOllamaLocalID"
         static let ollamaMetricsEnabled = "ollamaMetricsEnabled"
@@ -769,40 +786,78 @@ final class Preferences: ObservableObject {
         return migrated
     }
 
-    nonisolated static let onboardingCompleteKey = Keys.swarmaaOnboardingComplete
-    nonisolated static let serviceRootKey = Keys.swarmaaServiceRoot
-    nonisolated static let defaultSwarmaaServiceRoot = "~/Projects/swarma"
-    nonisolated static let authModeKey = Keys.swarmaAuthMode
-    /// "token" (default): a token file for a service on this Mac, over REST.
-    /// "oauth": a remote Swarmaa reached over MCP with Keychain-held OAuth tokens.
-    nonisolated static func storedSwarmaAuthMode(defaults: UserDefaults = .standard) -> SwarmaAuthMode {
-        defaults.string(forKey: Keys.swarmaAuthMode) == "oauth" ? .oauth : .tokenFile
-    }
-    nonisolated static let defaultSwarmaServiceURL = "http://127.0.0.1:8787"
-    nonisolated static let defaultSwarmaTokenPath = "~/Projects/swarma/.local/notchtrader.json"
-
-    /// The Swarma client is an actor and asks for these on every request, so
-    /// they read the store, not the `@Published` object — as custom endpoints do.
-    nonisolated static func storedSwarmaServiceURL(defaults: UserDefaults = .standard) -> String {
-        let value = defaults.string(forKey: Keys.swarmaServiceURL)?.trimmingCharacters(in: .whitespacesAndNewlines)
-        return (value?.isEmpty ?? true) ? defaultSwarmaServiceURL : value!
+    nonisolated private static var tickersBackupURL: URL {
+        let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+        let dir = appSupport.appendingPathComponent("NotchTrader", isDirectory: true)
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        return dir.appendingPathComponent("tickers.json")
     }
 
-    nonisolated static func storedSwarmaTokenPath(defaults: UserDefaults = .standard) -> String {
-        let value = defaults.string(forKey: Keys.swarmaTokenPath)?.trimmingCharacters(in: .whitespacesAndNewlines)
-        return (value?.isEmpty ?? true) ? defaultSwarmaTokenPath : value!
+    nonisolated static func saveTickersToBackup(_ tickers: [String]) {
+        try? JSONEncoder().encode(tickers).write(to: tickersBackupURL)
     }
 
-    nonisolated static func storedSwarmaEnabled(defaults: UserDefaults = .standard) -> Bool {
-        if defaults.object(forKey: Keys.swarmaEnabled) != nil {
-            return defaults.bool(forKey: Keys.swarmaEnabled)
+    nonisolated static func storedConfiguredTickers(
+        defaults: UserDefaults = .standard
+    ) -> [String] {
+        if let list = defaults.stringArray(forKey: Keys.configuredTickers) {
+            return list
         }
-        let path = (storedSwarmaTokenPath(defaults: defaults) as NSString).expandingTildeInPath
-        return FileManager.default.fileExists(atPath: path)
+        if let data = try? Data(contentsOf: tickersBackupURL),
+           let list = try? JSONDecoder().decode([String].self, from: data) {
+            defaults.set(list, forKey: Keys.configuredTickers)
+            return list
+        }
+        let initial = ["SPY", "QQQ", "AAPL"]
+        defaults.set(initial, forKey: Keys.configuredTickers)
+        saveTickersToBackup(initial)
+        return initial
     }
 
-    nonisolated static func storedSwarmaShowsChats(defaults: UserDefaults = .standard) -> Bool {
-        defaults.object(forKey: Keys.swarmaShowsChats) as? Bool ?? true
+    nonisolated static func storedQuickAddTickers(
+        defaults: UserDefaults = .standard
+    ) -> [String] {
+        if let list = defaults.stringArray(forKey: Keys.quickAddTickers), !list.isEmpty {
+            return list
+        }
+        let popular = ["SPY", "QQQ", "AAPL", "NVDA", "MSFT", "TSLA", "AMZN", "VOO"]
+        defaults.set(popular, forKey: Keys.quickAddTickers)
+        return popular
+    }
+
+    nonisolated static func storedMarketsOnEnabled(
+        defaults: UserDefaults = .standard
+    ) -> Bool {
+        if defaults.object(forKey: Keys.marketsOnEnabled) != nil {
+            return defaults.bool(forKey: Keys.marketsOnEnabled)
+        }
+        return true
+    }
+
+    nonisolated static func storedMarketsOnForceActive(
+        defaults: UserDefaults = .standard
+    ) -> Bool {
+        defaults.bool(forKey: Keys.marketsOnForceActive)
+    }
+
+    nonisolated static func storedOpsOddsBaseURL(
+        defaults: UserDefaults = .standard
+    ) -> String {
+        defaults.string(forKey: Keys.opsOddsBaseURL) ?? "https://www.opsodds.com"
+    }
+
+    nonisolated static func storedOpsOddsDeviceId(
+        defaults: UserDefaults = .standard
+    ) -> String? {
+        let val = defaults.string(forKey: Keys.opsOddsDeviceId)
+        return (val?.isEmpty ?? true) ? nil : val
+    }
+
+    nonisolated static func storedOpsOddsRefreshInterval(
+        defaults: UserDefaults = .standard
+    ) -> Double {
+        let val = defaults.double(forKey: Keys.opsOddsRefreshInterval)
+        return val > 0 ? val : 15.0
     }
 
     /// Custom endpoint providers are actors and ask for this on every fetch, and
@@ -868,7 +923,7 @@ final class Preferences: ObservableObject {
     /// at all.
     let isFirstLaunch: Bool
 
-    /// The bundle identifier before the app was renamed to Swarmaa.
+    /// The bundle identifier before the app was renamed to Codenotch.
     ///
     /// A bundle id is the name of the defaults domain, so renaming the app
     /// silently moved every setting to a new, empty one — connection choices,
@@ -890,25 +945,6 @@ final class Preferences: ObservableObject {
 
         for (key, value) in old { defaults.set(value, forKey: key) }
         Log.usage.info("migrated \(old.count) settings from the previous app name")
-    }
-
-    /// The bundle id before the move to app.swarmaa.notch. Another id is another
-    /// defaults domain, so every setting would otherwise start empty.
-    static let codenotchDomain = "com.vinz.codenotch"
-    static let migratedFromCodenotchKey = "didMigrateFromCodenotch"
-
-    /// Copies the old id's settings across once. Keys already present in the new
-    /// domain win, so nothing newer is overwritten; the flag stops a second run.
-    static func migrateFromCodenotch(into defaults: UserDefaults = .standard,
-                                     from domain: String = codenotchDomain) {
-        guard !defaults.bool(forKey: migratedFromCodenotchKey) else { return }
-        if let old = UserDefaults(suiteName: domain)?.persistentDomain(forName: domain) {
-            for (key, value) in old where defaults.object(forKey: key) == nil {
-                defaults.set(value, forKey: key)
-            }
-            Log.usage.info("migrated \(old.count) settings from \(domain, privacy: .public)")
-        }
-        defaults.set(true, forKey: migratedFromCodenotchKey)
     }
 
     init(defaults: UserDefaults = .standard) {
@@ -1070,7 +1106,7 @@ final class Preferences: ObservableObject {
             .flatMap(AntigravityHeadlineLimit.init(rawValue:)) ?? .automatic
         self.antigravityHeadlineModel = defaults.string(forKey: Keys.antigravityHeadlineModel)
             .flatMap(AntigravityHeadlineModel.init(rawValue:)) ?? .gemini
-        // Follow the Mac unless the user explicitly chooses a Swarmaa colour.
+        // Follow the Mac unless the user explicitly chooses a Codenotch colour.
         // Off by default: an extra arc in a 44pt circle is a change to how
         // every reading looks, and nobody asked for it on their behalf.
         self.weeklyRingDashed = defaults.object(forKey: Keys.weeklyRingDashed) as? Bool ?? false
@@ -1140,11 +1176,13 @@ final class Preferences: ObservableObject {
             self.customEndpoints = []
         }
         self.remoteHosts = Self.storedRemoteHosts(defaults: defaults)
-        self.swarmaEnabled = Self.storedSwarmaEnabled(defaults: defaults)
-        self.swarmaServiceURL = Self.storedSwarmaServiceURL(defaults: defaults)
-        self.swarmaTokenPath = Self.storedSwarmaTokenPath(defaults: defaults)
-        self.swarmaShowsChats = Self.storedSwarmaShowsChats(defaults: defaults)
-        self.swarmaUpdates = defaults.object(forKey: Keys.swarmaUpdates) as? Bool ?? true
+        self.configuredTickers = Self.storedConfiguredTickers(defaults: defaults)
+        self.quickAddTickers = Self.storedQuickAddTickers(defaults: defaults)
+        self.marketsOnEnabled = Self.storedMarketsOnEnabled(defaults: defaults)
+        self.marketsOnForceActive = Self.storedMarketsOnForceActive(defaults: defaults)
+        self.opsOddsBaseURL = Self.storedOpsOddsBaseURL(defaults: defaults)
+        self.opsOddsDeviceId = defaults.string(forKey: Keys.opsOddsDeviceId) ?? ""
+        self.opsOddsRefreshInterval = Self.storedOpsOddsRefreshInterval(defaults: defaults)
         // Read from the system rather than from our own store: the user can turn
         // this off in System Settings, and a remembered `true` would then be a lie.
         self.launchAtLogin = Self.isRegisteredForLogin
@@ -1274,7 +1312,7 @@ final class Preferences: ObservableObject {
     /// Claude and Codex stay on for a first install and for a newly discovered
     /// profile. Everyone else starts off.
     nonisolated static func isDefaultOnFamily(_ providerID: String) -> Bool {
-        if providerID.hasPrefix("swarm:") { return true }
+        if providerID.hasPrefix("ticker:") { return true }
         return ClaudeProfile.isClaude(providerID: providerID)
             || CodexProfile.isCodex(providerID: providerID)
     }
@@ -1286,7 +1324,7 @@ final class Preferences: ObservableObject {
     }
 
     func isConnected(_ providerID: String) -> Bool {
-        if providerID.hasPrefix("swarm:") {
+        if providerID.hasPrefix("ticker:") {
             return true
         }
         if Self.isModelCell(providerID) {
@@ -1391,10 +1429,8 @@ final class Preferences: ObservableObject {
     /// update, and wiping data on every Sparkle update would be catastrophic.
     /// It has to be something the user asks for.
     static func eraseAllData() {
-        let bundleID = Bundle.main.bundleIdentifier ?? "app.swarmaa.notch"
+        let bundleID = Bundle.main.bundleIdentifier ?? "com.vinz.codenotch"
         UserDefaults.standard.removePersistentDomain(forName: bundleID)
-        // Or the next launch would copy the old id's settings straight back.
-        UserDefaults.standard.removePersistentDomain(forName: codenotchDomain)
         UserDefaults.standard.synchronize()
 
         let library = FileManager.default.urls(for: .libraryDirectory, in: .userDomainMask).first
@@ -1427,7 +1463,7 @@ final class Preferences: ObservableObject {
             // Commonly refused for an app running from a build directory rather
             // than /Applications, which is worth saying plainly.
             Log.usage.error("launch at login failed: \(error.localizedDescription, privacy: .public)")
-            launchAtLoginProblem = L10n.t("macOS refused this — try moving Swarmaa to /Applications.")
+            launchAtLoginProblem = L10n.t("macOS refused this — try moving Codenotch to /Applications.")
             launchAtLogin = Self.isRegisteredForLogin
         }
     }

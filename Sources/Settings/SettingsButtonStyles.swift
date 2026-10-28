@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Buttons in Settings, drawn to match the panel rather than as default macOS
+/// Buttons in Settings, drawn to match the panel rather than as stock macOS
 /// push buttons, and every one of them answering the pointer: brighter on
 /// hover, a touch smaller and darker while pressed, dimmed when it can't be
 /// used. Set once over each pane (see `SettingsView.pane(for:)`), so a button
@@ -52,7 +52,7 @@ private struct SettingsButtonBody: View {
 
     var body: some View {
         configuration.label
-            .font(.system(size: compact ? 12 : 13, weight: compact ? .semibold : .medium))
+            .font(.system(size: compact ? 11 : 12, weight: compact ? .semibold : .medium))
             .foregroundStyle(foreground)
             .padding(.horizontal, compact ? 9 : 12)
             .padding(.vertical, compact ? 3 : 5)

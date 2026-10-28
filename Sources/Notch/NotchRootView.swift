@@ -151,7 +151,7 @@ struct NotchRootView: View {
                             }
                         }
                     )
-                    .position(resetCardCentre(place, index: index, event: resetEvent))
+                    .position(resetCardCentre(place, index: index))
                     .transition(.opacity.combined(with: .offset(
                         x: model.edge.outward.x * Design.px(24),
                         y: model.edge.outward.y * Design.px(24)
@@ -660,12 +660,19 @@ struct NotchRootView: View {
     static let gripReturn = Animation.easeIn(duration: 0.2)
 
     private func tooltipLength(_ snapshot: ProviderSnapshot) -> CGFloat {
-        model.edge.isVertical ? cardAcross(snapshot) : NotchLayout.cardWidth
+        model.edge.isVertical ? cardAcross(snapshot) : cardWidth(snapshot)
+    }
+
+    private func cardWidth(_ snapshot: ProviderSnapshot) -> CGFloat {
+        snapshot.kind == .stockTicker ? NotchLayout.opsOddsCardWidth : NotchLayout.cardWidth
     }
 
     /// The card's extent across the stack (its height on a horizontal edge).
     private func cardAcross(_ snapshot: ProviderSnapshot) -> CGFloat {
-        NotchLayout.cardHeight(
+        if snapshot.kind == .stockTicker {
+            return NotchLayout.opsOddsCardHeight
+        }
+        return NotchLayout.cardHeight(
             windowCount: snapshot.windows.count,
             groupCount: snapshot.windowGroupCount,
             moneyWindowCount: snapshot.windows.filter { $0.money != nil }.count,
@@ -685,7 +692,7 @@ struct NotchRootView: View {
             compactRowCount: snapshot.compactRowCount,
             showsDeepSeekPricing: model.deepSeekPricingEnabled,
             costRows: model.costRows(for: snapshot),
-            swarmActivity: snapshot.swarmActivity)
+            isStockTicker: snapshot.kind == .stockTicker)
     }
 
     private func tooltipTailOffset(index: Int, snapshot: ProviderSnapshot) -> CGFloat {
@@ -698,7 +705,7 @@ struct NotchRootView: View {
     private func tooltipCentre(
         _ place: NotchPlacement, index: Int, snapshot: ProviderSnapshot
     ) -> CGPoint {
-        let card = model.edge.isVertical ? NotchLayout.cardWidth : cardAcross(snapshot)
+        let card = model.edge.isVertical ? cardWidth(snapshot) : cardAcross(snapshot)
         // The ring it points at has moved with the notch, so the tail follows
         // it — but the card beyond the tail is drawn at its own size, and
         // `tooltipInset` already ends where the drawn notch does.
@@ -723,10 +730,9 @@ struct NotchRootView: View {
                            across: model.tooltipInset + (NotchLayout.tailLength + across) / 2)
     }
 
-    private func resetCardCentre(_ place: NotchPlacement, index: Int, event: UsageResetEvent) -> CGPoint {
-        let height = UsageResetCard.height(for: event)
-        let card = model.edge.isVertical ? NotchLayout.cardWidth : height
-        let cardAlong = model.edge.isVertical ? height : NotchLayout.cardWidth
+    private func resetCardCentre(_ place: NotchPlacement, index: Int) -> CGPoint {
+        let card = model.edge.isVertical ? NotchLayout.cardWidth : UsageResetCard.cardHeight
+        let cardAlong = model.edge.isVertical ? UsageResetCard.cardHeight : NotchLayout.cardWidth
         return place.point(
             along: model.tooltipAlong(index: index, length: cardAlong),
             across: model.tooltipInset + (NotchLayout.tailLength + card) / 2
