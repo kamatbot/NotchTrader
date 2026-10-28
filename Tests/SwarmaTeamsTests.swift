@@ -116,6 +116,24 @@ final class TeamsDecodingTests: XCTestCase {
         let encoded = try JSONSerialization.jsonObject(with: JSONEncoder().encode(TeamsRunner.auto)) as? [String: String]
         XCTAssertEqual(encoded, ["mode": "auto"])
     }
+
+    /// Shapes copied from the live phase 1 service (2026-10-28).
+    func testLiveServiceShapes() throws {
+        let page = try decode(SwarmaTeamsClient.AgentPage.self, """
+        {"agents":[{"id":"160c","scope":"project:swarma","name":"Smoke","role":"Tester","instructions":"x",
+          "runner":{"mode":"auto"},"edits":false,"avatar":null,"main_thread_id":"5b38","status":"offline",
+          "unread_count":2,"archived":true,"version":2,"created_at":"2026-10-27T23:23:48.659Z"}],
+         "has_more":false,"next_cursor":null}
+        """)
+        XCTAssertEqual(page.agents[0].unread, 2)
+        XCTAssertTrue(page.agents[0].archived)
+        let threads = try decode([TeamsThread].self, """
+        [{"id":"5b38","scope":"project:swarma","agent_id":"160c","kind":"agent_main","title":"Smoke",
+          "archived":false,"version":1,"unread_count":2}]
+        """)
+        XCTAssertEqual(threads[0].unread, 2)
+        XCTAssertEqual(threads[0].name, "Smoke")
+    }
 }
 
 final class SSEParserTests: XCTestCase {

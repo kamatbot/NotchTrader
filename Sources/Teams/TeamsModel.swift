@@ -127,7 +127,7 @@ final class TeamsModel: ObservableObject {
         if phase != .ready { phase = .loading }
         do {
             let (agents, sections) = try await client.agentList()
-            self.agents = agents
+            self.agents = agents.filter { !$0.archived }
             self.sections = sections ?? []
         } catch {
             let failure = SwarmaTeamsClient.Failure.map(error)

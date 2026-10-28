@@ -79,9 +79,11 @@ struct TeamsAgent: Decodable, Equatable, Identifiable {
     var lastSeq: Int?
     var lastReadSeq: Int?
     var lastMessage: TeamsPreview?
+    var archived: Bool
 
     private enum CodingKeys: String, CodingKey {
-        case id, name, role, avatar, instructions, scope, runner, edits, status, version, unread
+        case id, name, role, avatar, instructions, scope, runner, edits, status, version, unread, archived
+        case unreadCount = "unread_count"
         case mainThreadID = "main_thread_id", lastSeq = "last_seq", lastReadSeq = "last_read_seq", lastMessage = "last_message"
     }
 
@@ -94,9 +96,10 @@ struct TeamsAgent: Decodable, Equatable, Identifiable {
         runner = c.opt(TeamsRunner.self, .runner) ?? .auto
         edits = c.opt(Bool.self, .edits) ?? false
         mainThreadID = c.opt(String.self, .mainThreadID); status = c.opt(String.self, .status)
-        version = c.opt(Int.self, .version); unread = c.opt(Int.self, .unread)
+        version = c.opt(Int.self, .version); unread = c.opt(Int.self, .unreadCount) ?? c.opt(Int.self, .unread)
         lastSeq = c.opt(Int.self, .lastSeq); lastReadSeq = c.opt(Int.self, .lastReadSeq)
         lastMessage = c.opt(TeamsPreview.self, .lastMessage)
+        archived = c.opt(Bool.self, .archived) ?? false
     }
 }
 
@@ -115,7 +118,8 @@ struct TeamsThread: Decodable, Equatable, Identifiable {
     var lastMessage: TeamsPreview?
 
     private enum CodingKeys: String, CodingKey {
-        case id, kind, name, members, archived, unread
+        case id, kind, name, title, members, archived, unread
+        case unreadCount = "unread_count"
         case agentID = "agent_id", leadAgentID = "lead_agent_id", lastSeq = "last_seq"
         case lastReadSeq = "last_read_seq", lastMessage = "last_message"
     }
@@ -124,10 +128,10 @@ struct TeamsThread: Decodable, Equatable, Identifiable {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         id = try c.decode(String.self, forKey: .id)
         kind = c.opt(String.self, .kind) ?? "agent_main"
-        name = c.opt(String.self, .name); agentID = c.opt(String.self, .agentID)
+        name = c.opt(String.self, .name) ?? c.opt(String.self, .title); agentID = c.opt(String.self, .agentID)
         members = c.list(.members); leadAgentID = c.opt(String.self, .leadAgentID)
         archived = c.opt(Bool.self, .archived) ?? false
-        unread = c.opt(Int.self, .unread); lastSeq = c.opt(Int.self, .lastSeq)
+        unread = c.opt(Int.self, .unreadCount) ?? c.opt(Int.self, .unread); lastSeq = c.opt(Int.self, .lastSeq)
         lastReadSeq = c.opt(Int.self, .lastReadSeq); lastMessage = c.opt(TeamsPreview.self, .lastMessage)
     }
 }
@@ -636,12 +640,13 @@ actor SwarmaTeamsClient {
     nonisolated func stream(after: String? = nil) -> AsyncThrowingStream<TeamsEvent, Error> {
         AsyncThrowingStream { continuation in
             let task = Task {
-                var cursor = after
+                // `now` starts at the live edge; with no cursor the service replays all history.
+                var cursor = after ?? "now"
                 var delay: TimeInterval = 1
                 while !Task.isCancelled {
                     do {
                         var query: [URLQueryItem] = []
-                        if let cursor { query.append(URLQueryItem(name: "after", value: cursor)) }
+                        query.append(URLQueryItem(name: "after", value: cursor))
                         var request = try await base.getRequest(path: "api/stream", query: query)
                         request.setValue("text/event-stream", forHTTPHeaderField: "Accept")
                         request.timeoutInterval = 60   // heartbeats every 15 s keep it open
